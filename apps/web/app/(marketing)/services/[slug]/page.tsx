@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import {
   Accordion,
   AccordionContent,
@@ -35,11 +36,11 @@ export async function generateMetadata({ params }: ServiceDetailPageProps): Prom
   const detail = getServiceDetailBySlug(slug);
   if (!service || !detail) return {};
 
-  return {
+  return withSocialMetadata({
     title: service.title,
     description: detail.introduction,
     alternates: { canonical: `/services/${service.slug}` },
-  };
+  });
 }
 
 const DOT_LIST_ITEM = 'flex gap-3';

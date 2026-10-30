@@ -17,6 +17,8 @@ interface PageFacts {
   lang: string | null;
   og: Record<string, string>;
   twitterCard: string | null;
+  twitterTitle: string | null;
+  twitterDescription: string | null;
   h1: string[];
   headingLevels: number[];
   jsonLdTypes: string[];
@@ -61,6 +63,8 @@ async function collect(page: Page): Promise<PageFacts> {
       lang: document.documentElement.getAttribute('lang'),
       og,
       twitterCard: meta('meta[name="twitter:card"]'),
+      twitterTitle: meta('meta[name="twitter:title"]'),
+      twitterDescription: meta('meta[name="twitter:description"]'),
       h1: [...document.querySelectorAll('h1')].map((heading) => heading.textContent?.trim() ?? ''),
       headingLevels: [...document.querySelectorAll('h1,h2,h3,h4,h5,h6')].map((heading) =>
         Number(heading.tagName[1]),
@@ -74,6 +78,29 @@ async function collect(page: Page): Promise<PageFacts> {
 const normalise = (url: string) => url.replace(/\/+$/, '');
 
 test.describe('metadata on every public page', () => {
+  test('blog canonicals retain filters and discard tracking parameters', async ({ page }) => {
+    const cases = [
+      ['/blog?page=1&utm_source=test', '/blog'],
+      ['/blog?page=invalid', '/blog'],
+      [
+        '/blog?q=%20synthetic%20&tag=missing&category=missing&page=999',
+        '/blog?q=synthetic&category=missing&tag=missing',
+      ],
+    ] as const;
+    for (const [path, canonical] of cases) {
+      await page.goto(path);
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+        'href',
+        `${WEB_URL}${canonical}`,
+      );
+      await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+        'content',
+        `${WEB_URL}${canonical}`,
+      );
+      await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Blog');
+      await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', 'Blog');
+    }
+  });
   test('title, description, canonical, Open Graph, Twitter card, one h1, ordered headings, valid JSON-LD', async ({
     page,
     request,
@@ -115,6 +142,19 @@ test.describe('metadata on every public page', () => {
       for (const key of ['title', 'description', 'image'])
         if (!facts.og[key]) fail(`missing og:${key}`);
       if (!facts.twitterCard) fail('missing twitter:card');
+      if (facts.og['description'] !== facts.description)
+        fail('Open Graph description does not match the page description');
+      if (facts.twitterDescription !== facts.description)
+        fail('Twitter description does not match the page description');
+      for (const [label, title] of [
+        ['Open Graph', facts.og['title']],
+        ['Twitter', facts.twitterTitle],
+      ]) {
+        if (!title || (facts.title !== title && !facts.title.startsWith(title + ' | ')))
+          fail(label + ' title does not match the page title');
+      }
+      if (normalise(facts.og['url'] ?? '') !== normalise(WEB_URL + path))
+        fail('Open Graph URL does not match the page');
       if (facts.lang !== 'en') fail(`<html lang> is ${JSON.stringify(facts.lang)}`);
 
       if (facts.h1.length !== 1) fail(`${facts.h1.length} <h1> elements (need exactly 1)`);

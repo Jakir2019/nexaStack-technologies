@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { QuotationWizard } from '@/components/sections/QuotationWizard';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { env } from '@/lib/env';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Get a Quote',
   description:
     'Tell us about your project in five short steps and request a quotation for a website, web application or backend build.',
   alternates: { canonical: '/quotation' },
-};
+});
 
 export default function QuotationPage() {
   const breadcrumbJsonLd = {

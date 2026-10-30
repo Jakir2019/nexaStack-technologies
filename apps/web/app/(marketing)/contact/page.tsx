@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { ContactDetails } from '@/components/sections/ContactDetails';
 import { ContactForm } from '@/components/sections/ContactForm';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
@@ -9,11 +10,11 @@ import { company } from '@/config/company';
 import { navigationActions } from '@/config/navigation';
 import { env } from '@/lib/env';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Contact',
   description: `Get in touch with ${company.legalName} with a question or general inquiry.`,
   alternates: { canonical: '/contact' },
-};
+});
 
 export default function ContactPage() {
   const breadcrumbJsonLd = {

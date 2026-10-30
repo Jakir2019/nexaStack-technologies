@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { Badge } from '@/components/ui/Badge';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
@@ -47,11 +48,11 @@ export async function generateMetadata({
   const caseStudy = getCaseStudyBySlug(slug);
   if (!project || !caseStudy) return {};
 
-  return {
+  return withSocialMetadata({
     title: project.title,
     description: caseStudy.overview,
     alternates: { canonical: `/portfolio/${project.slug}` },
-  };
+  });
 }
 
 function BulletList({ items }: { items: readonly string[] }) {

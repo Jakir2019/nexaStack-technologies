@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
@@ -16,11 +17,11 @@ interface TestimonialsPageProps {
   searchParams: Promise<{ service?: string; project?: string }>;
 }
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Testimonials',
   description: 'What clients say about working with NexaStack Technologies.',
   alternates: { canonical: '/testimonials' },
-};
+});
 
 /** Unique, resolved `relatedServiceSlug`s across a testimonial set, as real filter options. */
 function serviceFilterOptions(testimonials: readonly { relatedServiceSlug?: string }[]): TestimonialFilterOption[] {

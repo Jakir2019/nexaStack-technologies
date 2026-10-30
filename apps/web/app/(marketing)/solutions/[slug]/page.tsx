@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { Badge } from '@/components/ui/Badge';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
@@ -29,11 +30,11 @@ export async function generateMetadata({ params }: SolutionDetailPageProps): Pro
   const detail = getSolutionDetailBySlug(slug);
   if (!solution || !detail) return {};
 
-  return {
+  return withSocialMetadata({
     title: solution.title,
     description: detail.introduction,
     alternates: { canonical: `/solutions/${solution.slug}` },
-  };
+  });
 }
 
 const DOT_LIST_ITEM = 'flex gap-3';

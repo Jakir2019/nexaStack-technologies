@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 
 import { ArticleGrid } from '@/components/sections/ArticleGrid';
 import { BlogFilterLinks } from '@/components/sections/BlogFilterLinks';
@@ -12,6 +13,7 @@ import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { company } from '@/config/company';
 import { navigationActions } from '@/config/navigation';
 import { env } from '@/lib/env';
+import { DEFAULT_SHARE_IMAGE } from '@/lib/blogImage';
 import {
   filterAndPaginatePosts,
   getAllPosts,
@@ -33,20 +35,54 @@ interface BlogPageProps {
   searchParams: Promise<{ q?: string; category?: string; tag?: string; page?: string }>;
 }
 
-// Deliberately a static export, not `generateMetadata`: an async one that reads the database moves
-// `<title>` out of `<head>` into the streamed body for every visitor, including when the database is up.
-export const metadata: Metadata = {
-  title: 'Blog',
-  description: 'Articles on web development and building better websites, from NexaStack Technologies.',
-  alternates: { canonical: '/blog' },
-};
+// Use the displayed page and filters for canonicals. React cache shares the data read
+// with the page in this request; Next.js blocks metadata streaming for HTML-limited bots.
+export async function generateMetadata({ searchParams }: BlogPageProps): Promise<Metadata> {
+  const params = await searchParams;
+  const data = await loadBlogListData();
+  if (!data) return { title: 'Blog unavailable', robots: { index: false } };
+
+  const gridPosts = data.featuredPost
+    ? data.allPosts.filter((post) => post.slug !== data.featuredPost?.slug)
+    : data.allPosts;
+  const { currentPage } = filterAndPaginatePosts(gridPosts, params);
+  const query = new URLSearchParams();
+  if (params.q?.trim()) query.set('q', params.q.trim());
+  if (params.category) query.set('category', params.category);
+  if (params.tag) query.set('tag', params.tag);
+  if (currentPage > 1) query.set('page', String(currentPage));
+  const canonical = query.size ? `/blog?${query.toString()}` : '/blog';
+  const title = currentPage > 1 ? `Blog — Page ${currentPage}` : 'Blog';
+  const description =
+    'Articles on web development and building better websites, from NexaStack Technologies.';
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: 'website',
+      siteName: company.legalName,
+      title,
+      description,
+      url: canonical,
+      images: [DEFAULT_SHARE_IMAGE],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [DEFAULT_SHARE_IMAGE],
+    },
+  };
+}
 
 /**
  * Everything the list needs from the database, or `null` if it cannot be read. The failure is logged
  * here (server-side, real cause) and the page shows `BlogUnavailable` rather than the generic error
  * boundary, so a database outage never leaves the visitor with a broken page.
  */
-async function loadBlogListData() {
+const loadBlogListData = cache(async () => {
   try {
     const allPosts = await getAllPosts();
     const hasAnyPosts = allPosts.length > 0;
@@ -60,7 +96,7 @@ async function loadBlogListData() {
     logBlogReadFailure({ route: '/blog' }, error);
     return null;
   }
-}
+});
 
 export default async function BlogPage({ searchParams }: BlogPageProps) {
   const params = await searchParams;
@@ -143,12 +179,16 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
         </ScrollReveal>
       ) : (
         <ScrollReveal className="mt-12 max-w-prose">
-          <p className="text-body-lg text-secondary">No articles published yet — check back soon.</p>
+          <p className="text-body-lg text-secondary">
+            No articles published yet — check back soon.
+          </p>
         </ScrollReveal>
       )}
 
       <ScrollReveal className="mt-12 max-w-prose border-t border-default pt-10">
-        <h2 className="text-section font-semibold tracking-tight text-primary">Looking for something else?</h2>
+        <h2 className="text-section font-semibold tracking-tight text-primary">
+          Looking for something else?
+        </h2>
         <p className="mt-4 text-body-lg text-secondary">
           Explore {company.legalName}&rsquo;s services, or tell us what you&rsquo;re building and
           get a project-specific quote.

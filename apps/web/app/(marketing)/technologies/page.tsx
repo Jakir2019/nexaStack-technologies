@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { Badge } from '@/components/ui/Badge';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
@@ -23,12 +24,12 @@ import { env } from '@/lib/env';
 const H2_CLASS = 'scroll-mt-24 text-section font-semibold tracking-tight text-primary';
 const SECTION_CLASS = 'mt-12 max-w-prose';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Technology Stack',
   description:
     'The real technologies NexaStack Technologies builds with, organised by category, including what is deliberately not used and what is planned but not yet installed.',
   alternates: { canonical: '/technologies' },
-};
+});
 
 function ChipRow({ items }: { items: readonly string[] }) {
   return (

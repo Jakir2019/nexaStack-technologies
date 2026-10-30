@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/Accordion';
 import { FaqCategoryFilterLinks } from '@/components/sections/FaqCategoryFilterLinks';
 import { FaqSearchInput } from '@/components/sections/FaqSearchInput';
@@ -23,11 +24,11 @@ interface FaqPageProps {
   searchParams: Promise<{ q?: string; category?: string }>;
 }
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Frequently Asked Questions',
   description: 'Answers to common questions about working with NexaStack Technologies — services, pricing, the development process and support.',
   alternates: { canonical: '/faq' },
-};
+});
 
 function matchesQuery(item: FaqItem, query: string) {
   const haystack = `${item.question} ${item.answer}`.toLowerCase();

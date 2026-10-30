@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { SolutionCard } from '@/components/sections/SolutionCard';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
@@ -7,12 +8,12 @@ import { company } from '@/config/company';
 import { solutions } from '@/config/solutions';
 import { env } from '@/lib/env';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Solutions and Industries',
   description:
     'How NexaStack Technologies approaches recruitment platforms, logistics systems, business-management tools, e-commerce and startup MVPs — tailored to what each kind of business actually needs.',
   alternates: { canonical: '/solutions' },
-};
+});
 
 /**
  * Full solutions listing — the "browse all five" destination, distinct from the homepage's

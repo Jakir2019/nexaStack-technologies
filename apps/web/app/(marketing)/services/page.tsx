@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { ServiceCard } from '@/components/sections/ServiceCard';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
@@ -9,12 +10,12 @@ import { navigationActions } from '@/config/navigation';
 import { getServiceBySlug, services, type Service } from '@/config/services';
 import { env } from '@/lib/env';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Services',
   description:
     'Web development services from NexaStack Technologies — business websites, full-stack MERN and Next.js applications, admin dashboards, backend APIs, ongoing maintenance, and performance, SEO and accessibility audits.',
   alternates: { canonical: '/services' },
-};
+});
 
 // Real, non-arbitrary split: services that build something new vs. services that work on
 // something that already exists. Not every service list clusters this cleanly — this one does.

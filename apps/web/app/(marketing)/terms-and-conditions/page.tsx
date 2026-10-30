@@ -1,16 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { company } from '@/config/company';
 import { env } from '@/lib/env';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Terms and Conditions',
   description: `The terms for using ${company.legalName}'s website and engaging its services.`,
   alternates: { canonical: '/terms-and-conditions' },
-};
+});
 
 /**
  * Editorial fact, not a computed value — matches `PRIVACY_POLICY_LAST_UPDATED`'s pattern in

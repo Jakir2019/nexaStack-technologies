@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
@@ -16,12 +17,12 @@ import { env } from '@/lib/env';
 // `DevelopmentProcessStep` matches structurally without importing anything from
 // `config/process.ts`.
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Development Process',
   description:
     'The full, fourteen-step breakdown of how a NexaStack Technologies project runs, from first conversation to launch and beyond.',
   alternates: { canonical: '/process' },
-};
+});
 
 export default function ProcessPage() {
   const breadcrumbJsonLd = {

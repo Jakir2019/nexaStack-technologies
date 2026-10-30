@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { CoreValueIcon } from '@/components/ui/CoreValueIcon';
@@ -13,11 +14,11 @@ import { navigationActions } from '@/config/navigation';
 import { technologyCategories } from '@/config/technologies';
 import { whyChooseItems } from '@/config/why-choose';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'About',
   description: `Who ${company.legalName} is, how the studio works, and why it exists.`,
   alternates: { canonical: '/about' },
-};
+});
 
 const LABEL_CLASSES = 'text-label font-semibold text-secondary uppercase tracking-wide';
 const INLINE_LINK_CLASSES =

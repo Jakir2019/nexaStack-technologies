@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { FAQ } from '@/components/sections/FAQ';
 import { FeaturedPortfolio } from '@/components/sections/FeaturedPortfolio';
 import { FeaturedServices } from '@/components/sections/FeaturedServices';
@@ -10,14 +11,14 @@ import { SolutionsIndustries } from '@/components/sections/SolutionsIndustries';
 import { TechnologyStack } from '@/components/sections/TechnologyStack';
 import { Testimonials } from '@/components/sections/Testimonials';
 import { WhyChooseNexaStack } from '@/components/sections/WhyChooseNexaStack';
+import { company } from '@/config/company';
 import { homeContent } from '@/config/content/home';
 
-// Title/description are intentionally left unset here — the root layout's real,
-// already-correct defaults already describe the homepage. This export exists only to give the
-// homepage the `alternates.canonical` tag every other static page already has.
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
+  title: { absolute: `${company.legalName} — ${company.tagline}` },
+  description: `${company.legalName} is a founder-led web development firm in Dhaka, Bangladesh. ${company.tagline}.`,
   alternates: { canonical: '/' },
-};
+});
 
 export default function HomePage() {
   return (

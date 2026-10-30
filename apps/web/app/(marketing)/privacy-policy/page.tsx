@@ -1,16 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { withSocialMetadata } from '@/lib/metadata';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { company } from '@/config/company';
 import { env } from '@/lib/env';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSocialMetadata({
   title: 'Privacy Policy',
   description: `How ${company.legalName} collects, uses and stores information submitted through this website.`,
   alternates: { canonical: '/privacy-policy' },
-};
+});
 
 /**
  * Editorial fact, not a computed value — this only changes when the content below is
