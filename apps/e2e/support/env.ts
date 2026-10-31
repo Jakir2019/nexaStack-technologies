@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 /**
  * Shared constants for the browser tier. Ports are FIXED (Playwright reads `baseURL` before `globalSetup`
  * runs), high and unusual so they do not collide with a developer's `pnpm dev` on 3000/4000; global setup
@@ -26,13 +28,10 @@ export const ADMINS: Record<Role, { email: string; password: string }> = {
 /** Where global setup writes each role's signed-in browser state (cookies), for tests to reuse. */
 export const AUTH_DIR = new URL('../.auth/', import.meta.url);
 export const authFile = (role: Role) =>
-  new URL(`${role}.json`, AUTH_DIR).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+  fileURLToPath(new URL(`${role}.json`, AUTH_DIR));
 
 /** Written by global setup: facts about the seeded content and the Turnstile round trip. */
-export const STATE_FILE = new URL('../.auth/state.json', import.meta.url).pathname.replace(
-  /^\/([A-Za-z]:)/,
-  '$1',
-);
+export const STATE_FILE = fileURLToPath(new URL('../.auth/state.json', import.meta.url));
 
 export interface E2eState {
   /** False when challenges.cloudflare.com could not be reached, so tests needing the widget must skip. */

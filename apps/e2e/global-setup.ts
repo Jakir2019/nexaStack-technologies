@@ -125,7 +125,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   }
 
   rmSync(logDir, { recursive: true, force: true });
-  mkdirSync(new URL(AUTH_DIR).pathname.replace(/^\/([A-Za-z]:)/, '$1'), { recursive: true });
+  mkdirSync(AUTH_DIR, { recursive: true });
 
   const mongod = await startMongod();
   const dbName = `nexastack_e2e_${randomBytes(4).toString('hex')}_test`;
