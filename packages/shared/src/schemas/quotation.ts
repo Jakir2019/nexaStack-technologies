@@ -101,9 +101,19 @@ export const MAINTENANCE_OPTIONS = [
   { value: 'not-sure', label: 'Not sure yet' },
 ] as const;
 
-/** Draft file-attachment policy (root CLAUDE.md 22 open decision 4). */
+/** Quotation uploads: one file per request, sized for Netlify Free Functions. */
 export const ATTACHMENT_MAX_FILES = 5;
-export const ATTACHMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024;
+export const ATTACHMENT_MAX_SIZE_BYTES = 4 * 1024 * 1024;
+export const ATTACHMENT_SIZE_LABEL = `${ATTACHMENT_MAX_SIZE_BYTES / (1024 * 1024)} MB`;
+export const ATTACHMENT_SIZE_ERROR = `The maximum file size is ${ATTACHMENT_SIZE_LABEL} per attachment. Please select a smaller file.`;
+// Bound the WHOLE multipart body, including filenames/fields/boundaries. Base64 of this cap
+// is 5,614,252 bytes, leaving headroom below even a decimal 6 MB platform payload limit.
+export const ATTACHMENT_MAX_REQUEST_BYTES = ATTACHMENT_MAX_SIZE_BYTES + 16 * 1024;
+export const ATTACHMENT_REQUEST_SIZE_ERROR = `The upload request is too large. Attach one file up to ${ATTACHMENT_SIZE_LABEL} with a shorter filename and try again.`;
+// A separate schema because quotationSchema receives stored URLs, not File objects or trusted sizes.
+export const attachmentSizeSchema = z.number().int()
+  .min(1, { error: 'That file appears to be empty. Please choose another file.' })
+  .max(ATTACHMENT_MAX_SIZE_BYTES, { error: ATTACHMENT_SIZE_ERROR });
 export const ATTACHMENT_ACCEPTED_TYPES = ['application/pdf', 'image/png', 'image/jpeg'] as const;
 export const ATTACHMENT_ACCEPTED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'] as const;
 

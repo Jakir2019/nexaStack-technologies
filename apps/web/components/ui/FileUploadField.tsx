@@ -3,12 +3,12 @@
 import {
   ATTACHMENT_ACCEPTED_EXTENSIONS,
   ATTACHMENT_MAX_FILES,
-  ATTACHMENT_MAX_SIZE_BYTES,
-  type ApiResponse,
+  ATTACHMENT_SIZE_LABEL,
 } from '@nexastack/shared';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 import { cn } from '@/lib/cn';
+import { quotationFileError, uploadQuotationAttachment } from '@/lib/quotationUpload';
 
 interface UploadEntry {
   id: string;
@@ -39,11 +39,6 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function hasAcceptedExtension(name: string): boolean {
-  const lower = name.toLowerCase();
-  return ATTACHMENT_ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
 /**
@@ -79,14 +74,7 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
 
   const uploadOne = useCallback(async (entryId: string, file: File) => {
     try {
-      const body = new FormData();
-      body.append('file', file);
-      const response = await fetch('/api/quotation/upload', { method: 'POST', body });
-      const result = (await response.json()) as ApiResponse<{
-        url: string;
-        name: string;
-        size: number;
-      }>;
+      const result = await uploadQuotationAttachment(file);
 
       setEntries((prev) =>
         prev.map((entry) =>
@@ -100,15 +88,16 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
       setAnnouncement(
         result.success ? `${file.name} uploaded.` : `${file.name} failed: ${result.error.message}`,
       );
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Upload failed. Check your connection and try again.';
       setEntries((prev) =>
         prev.map((entry) =>
           entry.id === entryId
-            ? { ...entry, status: 'error' as const, error: 'Upload failed. Check your connection and try again.' }
+            ? { ...entry, status: 'error' as const, error: message }
             : entry,
         ),
       );
-      setAnnouncement(`${file.name} failed to upload.`);
+      setAnnouncement(`${file.name} failed: ${message}`);
     }
   }, []);
 
@@ -124,22 +113,14 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
 
       const incoming = Array.from(list).slice(0, room);
       const newEntries: UploadEntry[] = incoming.map((file) => {
-        if (file.size > ATTACHMENT_MAX_SIZE_BYTES) {
+        const error = quotationFileError(file);
+        if (error) {
           return {
             id: `${file.name}-${file.size}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             name: file.name,
             size: file.size,
             status: 'error',
-            error: 'Larger than the 10MB limit.',
-          };
-        }
-        if (!hasAcceptedExtension(file.name)) {
-          return {
-            id: `${file.name}-${file.size}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            name: file.name,
-            size: file.size,
-            status: 'error',
-            error: 'Only PDF, PNG or JPG files are accepted.',
+            error,
           };
         }
         return {
@@ -151,7 +132,9 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
       });
 
       setEntries((prev) => [...prev, ...newEntries]);
-      setAnnouncement(`${incoming.length} file${incoming.length === 1 ? '' : 's'} added.`);
+      const rejected = newEntries.filter((entry) => entry.error).map((entry) => `${entry.name}: ${entry.error}`);
+      const overflow = list.length > room ? ` Only ${room} files were added; you can attach up to ${ATTACHMENT_MAX_FILES} files.` : '';
+      setAnnouncement(`${incoming.length} file${incoming.length === 1 ? '' : 's'} added. ${rejected.join(' ')}${overflow}`);
 
       newEntries.forEach((entry, index) => {
         if (entry.status === 'uploading') void uploadOne(entry.id, incoming[index]!);
@@ -189,7 +172,7 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
       >
         <span className="text-body font-medium text-primary">Drag files here or click to browse</span>
         <span className="text-label text-secondary">
-          PDF, PNG or JPG — up to 10MB each, {ATTACHMENT_MAX_FILES} files max
+          PDF, PNG or JPG — up to {ATTACHMENT_SIZE_LABEL} each, {ATTACHMENT_MAX_FILES} files max
         </span>
         <input
           id={id}

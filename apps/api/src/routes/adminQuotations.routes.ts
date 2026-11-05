@@ -92,7 +92,8 @@ adminQuotationsRouter.get('/:id', validate(idParams), controller.getQuotation);
  *     description: >
  *       `attachmentId` is the file's index in the request's attachment list. The API fetches the file
  *       from private storage with a short-lived signed request and streams it; the client never
- *       receives a storage URL. Only PDF, PNG and JPEG (verified on the bytes) up to 10MB are served,
+ *       receives a storage URL. Only PDF, PNG and JPEG (verified on the bytes) up to the historical
+ *       10 MiB download cap are served; new quotation uploads are limited to 4 MiB,
  *       as `Content-Disposition: attachment` with `nosniff`. Audited.
  *     tags: [Admin Quotations]
  *     responses:

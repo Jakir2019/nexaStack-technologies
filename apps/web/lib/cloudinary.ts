@@ -64,6 +64,8 @@ export async function uploadBufferToCloudinary(
   const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
     method: 'POST',
     body: form,
+    // Leave time for parsing and a controlled error within Netlify's 60-second execution limit.
+    signal: AbortSignal.timeout(20_000),
   });
 
   if (!response.ok) {

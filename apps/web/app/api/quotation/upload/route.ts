@@ -1,6 +1,8 @@
 import {
   ATTACHMENT_ACCEPTED_TYPES,
   ATTACHMENT_MAX_SIZE_BYTES,
+  ATTACHMENT_REQUEST_SIZE_ERROR,
+  attachmentSizeSchema,
   ERROR_CODES,
   sniffFileType,
   type ApiResponse,
@@ -9,6 +11,7 @@ import { NextResponse } from 'next/server';
 
 import { isCloudinaryConfigured, uploadBufferToCloudinary } from '@/lib/cloudinary';
 import { checkQuotationUploadRateLimit, getClientIp } from '@/lib/quotationRateLimit';
+import { readQuotationUpload, UploadRequestTooLargeError } from '@/lib/quotationUploadRequest';
 
 /**
  * Uploads a single `/quotation` Step 5 attachment. The browser sends the raw file here (never
@@ -49,25 +52,29 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<u
 
   let formData: FormData;
   try {
-    formData = await request.formData();
-  } catch {
+    formData = await readQuotationUpload(request);
+  } catch (error) {
+    if (error instanceof UploadRequestTooLargeError) {
+      return jsonError(413, ERROR_CODES.PAYLOAD_TOO_LARGE, ATTACHMENT_REQUEST_SIZE_ERROR);
+    }
     return jsonError(400, ERROR_CODES.INVALID_JSON, 'Send the file as multipart/form-data under the "file" field.');
   }
 
   const file = formData.get('file');
+  if ([...formData.keys()].length !== 1) {
+    return jsonError(400, ERROR_CODES.VALIDATION_ERROR, 'Upload one file at a time under the "file" field.');
+  }
   if (!(file instanceof File)) {
     return jsonError(400, ERROR_CODES.VALIDATION_ERROR, 'Please choose a file to upload.');
   }
 
-  if (file.size === 0) {
-    return jsonError(400, ERROR_CODES.VALIDATION_ERROR, 'That file appears to be empty. Please choose another file.');
-  }
-
-  if (file.size > ATTACHMENT_MAX_SIZE_BYTES) {
+  const size = attachmentSizeSchema.safeParse(file.size);
+  if (!size.success) {
+    const tooLarge = file.size > ATTACHMENT_MAX_SIZE_BYTES;
     return jsonError(
-      413,
-      ERROR_CODES.PAYLOAD_TOO_LARGE,
-      `"${file.name}" is larger than the 10MB limit. Please choose a smaller file.`,
+      tooLarge ? 413 : 400,
+      tooLarge ? ERROR_CODES.PAYLOAD_TOO_LARGE : ERROR_CODES.VALIDATION_ERROR,
+      size.error.issues[0]!.message,
     );
   }
 

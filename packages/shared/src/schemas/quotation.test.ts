@@ -5,12 +5,24 @@ import { issuesByPath, parseValid } from '../test-utils/issues.js';
 
 import {
   ATTACHMENT_MAX_FILES,
+  ATTACHMENT_MAX_SIZE_BYTES,
+  attachmentSizeSchema,
   quotationSchema,
   quotationStep1Schema,
   quotationStep2Schema,
   quotationStep3Schema,
   quotationStep4Schema,
 } from './quotation.js';
+
+describe('quotation attachment size', () => {
+  for (const size of [1, 4 * 1024 * 1024 - 1, 4 * 1024 * 1024]) {
+    it(`accepts ${size} bytes`, () => assert.equal(attachmentSizeSchema.safeParse(size).success, true));
+  }
+  for (const size of [0, -1, 0.5, 4 * 1024 * 1024 + 1, 5 * 1024 * 1024, 10 * 1024 * 1024]) {
+    it(`rejects ${size} bytes`, () => assert.equal(attachmentSizeSchema.safeParse(size).success, false));
+  }
+  it('uses the exact 4 MiB limit', () => assert.equal(ATTACHMENT_MAX_SIZE_BYTES, 4_194_304));
+});
 
 const validQuotation = {
   fullName: 'Test User',

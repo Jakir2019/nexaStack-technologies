@@ -3,6 +3,8 @@ import { describe, it } from 'node:test';
 
 import {
   DOWNLOAD_URL_TTL_SECONDS,
+  ATTACHMENT_DOWNLOAD_MAX_SIZE_BYTES,
+  fetchAttachmentStream,
   buildPrivateDownloadUrl,
   canonicalAttachmentUrl,
   contentDispositionAttachment,
@@ -15,6 +17,27 @@ import {
 
 const CLOUD = 'testcloud';
 const CONFIG: CloudinaryConfig = { cloudName: CLOUD, apiKey: '123456', apiSecret: 'shh-secret' };
+
+describe('legacy private attachment download sizes', () => {
+  it('serves an existing 10 MiB file even though new uploads are capped at 4 MiB', async (t) => {
+    const bytes = new Uint8Array(10 * 1024 * 1024);
+    bytes.set(new TextEncoder().encode('%PDF-1.7'));
+    t.mock.method(globalThis, 'fetch', async () => new Response(bytes, { headers: { 'content-length': String(bytes.length) } }));
+    const ref = parseStoredAttachmentUrl(`https://res.cloudinary.com/${CLOUD}/image/authenticated/v1/nexastack/quotations/legacy.pdf`, CLOUD)!;
+    const result = await fetchAttachmentStream(ref, CONFIG);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    let received = 0;
+    for await (const chunk of result.stream) received += (chunk as Buffer).length;
+    assert.equal(received, bytes.length);
+    assert.equal(ATTACHMENT_DOWNLOAD_MAX_SIZE_BYTES, bytes.length);
+  });
+  it('still rejects files above the historical cap', async (t) => {
+    t.mock.method(globalThis, 'fetch', async () => new Response('too large', { headers: { 'content-length': String(ATTACHMENT_DOWNLOAD_MAX_SIZE_BYTES + 1) } }));
+    const ref = parseStoredAttachmentUrl(`https://res.cloudinary.com/${CLOUD}/image/authenticated/v1/nexastack/quotations/legacy.pdf`, CLOUD)!;
+    assert.deepEqual(await fetchAttachmentStream(ref, CONFIG), { ok: false, reason: 'too-large' });
+  });
+});
 
 describe('signCloudinaryParams', () => {
   it('matches the worked example in Cloudinary’s signature documentation', () => {

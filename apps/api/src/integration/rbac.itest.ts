@@ -110,6 +110,20 @@ const ACTIONS: Action[] = [
     passed: [200],
   },
   {
+    name: 'download a private quotation attachment',
+    permission: 'manage:quotations',
+    prepare: async () => {
+      const quotation = await seedQuotation(api, {
+        attachments: ['https://res.cloudinary.com/test-cloud/raw/authenticated/nexastack/quotations/brief.pdf'],
+      });
+      const url = `${API}/admin/quotations/${quotation.id}/attachments/0`;
+      assert.equal((await api.request(url)).status, 401);
+      return (cookie) => api.request(url, { cookie });
+    },
+    // Storage is deliberately unconfigured: authorized roles reach the service; others get 403.
+    passed: [503],
+  },
+  {
     name: 'change a quotation status',
     permission: 'manage:quotations',
     prepare: async () => {

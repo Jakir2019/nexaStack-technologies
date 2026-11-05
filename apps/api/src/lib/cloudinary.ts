@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import type { ReadableStreamReadResult } from 'node:stream/web';
 
-import { ATTACHMENT_MAX_SIZE_BYTES, sniffFileType, type SniffedFileType } from '@nexastack/shared';
+import { sniffFileType, type SniffedFileType } from '@nexastack/shared';
+
+// Historical quotation uploads allowed 10 MiB. Keep those private files downloadable;
+// the new 4 MiB upload limit must not retroactively invalidate stored attachments.
+export const ATTACHMENT_DOWNLOAD_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
 /**
  * Server-side access to quotation attachments stored in Cloudinary. Built from `fetch` and Node's
@@ -219,7 +223,7 @@ export type AttachmentFetchResult =
 /**
  * Fetches an attachment from Cloudinary (server-side, with a timeout) and returns it as a Node
  * stream. Refuses anything that is not really a PDF/PNG/JPEG (checked on the bytes, not on a header)
- * and anything larger than the upload limit, whatever the upstream says about its own length.
+ * and anything larger than the legacy download limit, whatever the upstream says about its length.
  */
 export async function fetchAttachmentStream(
   ref: CloudinaryAssetRef,
@@ -236,7 +240,7 @@ export async function fetchAttachmentStream(
   if (!response.ok || !response.body) return { ok: false, reason: 'unavailable' };
 
   const declaredLength = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declaredLength) && declaredLength > ATTACHMENT_MAX_SIZE_BYTES) {
+  if (Number.isFinite(declaredLength) && declaredLength > ATTACHMENT_DOWNLOAD_MAX_SIZE_BYTES) {
     await response.body.cancel();
     return { ok: false, reason: 'too-large' };
   }
@@ -256,7 +260,7 @@ export async function fetchAttachmentStream(
     let next: ReadableStreamReadResult<Uint8Array> = first;
     while (!next.done) {
       received += next.value.byteLength;
-      if (received > ATTACHMENT_MAX_SIZE_BYTES) {
+      if (received > ATTACHMENT_DOWNLOAD_MAX_SIZE_BYTES) {
         await reader.cancel();
         throw new Error('Attachment exceeded the size limit while streaming');
       }

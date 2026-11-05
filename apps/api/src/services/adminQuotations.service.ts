@@ -392,7 +392,7 @@ export async function getAttachmentDownload(
   if (!fetched.ok) {
     logger.warn({ quotationId: id, attachmentIndex: index, reason: fetched.reason }, 'Attachment fetch refused');
     if (fetched.reason === 'too-large') {
-      throw new AppError(413, ERROR_CODES.PAYLOAD_TOO_LARGE, 'This file is larger than the 10MB limit, so it was not served.');
+      throw new AppError(413, ERROR_CODES.PAYLOAD_TOO_LARGE, 'This file exceeds the supported download size, so it was not served.');
     }
     if (fetched.reason === 'not-allowed-type') {
       throw new AppError(422, ERROR_CODES.VALIDATION_ERROR, 'This file is not a PDF, PNG or JPG, so it was not served.');

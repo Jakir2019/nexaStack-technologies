@@ -158,6 +158,62 @@ const DRAFT = {
 };
 
 test.describe('quotation wizard', () => {
+  test('attachments reject oversized selections, preserve fields, and allow removal and replacement', async ({ page }) => {
+    const requests: number[] = [];
+    await page.route('**/api/quotation/upload', async (route) => {
+      requests.push(route.request().postDataBuffer()!.length);
+      await route.fulfill({ json: { success: true, data: { url: `https://res.cloudinary.com/test/raw/authenticated/nexastack/quotations/file-${requests.length}.pdf`, name: 'brief.pdf', size: 100 } } });
+    });
+    await page.addInitScript((draft) => sessionStorage.setItem('nexastack-quotation-draft', JSON.stringify(draft)), DRAFT);
+    await page.goto('/quotation');
+    await waitForHydration(page);
+    for (let step = 1; step <= 4; step++) await page.getByRole('button', { name: 'Next' }).click();
+    const input = page.locator('input[type=file]');
+    await input.setInputFiles([
+      { name: 'brief.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(4 * 1024 * 1024) },
+      { name: 'oversized.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(4 * 1024 * 1024 + 1) },
+    ]);
+    const valid = page.locator('li').filter({ has: page.getByText('brief.pdf', { exact: true }) });
+    const invalid = page.locator('li').filter({ has: page.getByText('oversized.pdf', { exact: true }) });
+    await expect(valid).toContainText('uploaded');
+    await expect(invalid).toContainText('The maximum file size is 4 MB per attachment.');
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toBeLessThanOrEqual(4 * 1024 * 1024 + 16 * 1024);
+    await invalid.getByRole('button', { name: 'Remove' }).click();
+    await valid.getByRole('button', { name: 'Remove' }).click();
+    await input.setInputFiles(Array.from({ length: 5 }, (_, index) => ({ name: `replacement-${index}.pdf`, mimeType: 'application/pdf', buffer: Buffer.alloc(100) })));
+    await expect(page.locator('li').filter({ hasText: /replacement-\d\.pdf/ }).filter({ hasText: 'uploaded' })).toHaveCount(5);
+    expect(requests).toHaveLength(6);
+    for (let step = 5; step > 1; step--) await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(page.getByLabel(/Full name/)).toHaveValue(DRAFT.fullName);
+    await expect(page.getByLabel(/Email address/)).toHaveValue(DRAFT.email);
+  });
+
+  test('attachment network and platform failures show helpful errors and permit retry', async ({ page }) => {
+    let attempt = 0;
+    await page.route('**/api/quotation/upload', async (route) => {
+      attempt++;
+      if (attempt === 1) return route.abort('failed');
+      if (attempt === 2) return route.fulfill({ status: 413, contentType: 'text/html', body: 'Payload too large' });
+      return route.fulfill({ json: { success: true, data: { url: 'https://res.cloudinary.com/test/raw/authenticated/nexastack/quotations/retry.pdf', name: 'retry.pdf', size: 100 } } });
+    });
+    await page.addInitScript((draft) => sessionStorage.setItem('nexastack-quotation-draft', JSON.stringify(draft)), DRAFT);
+    await page.goto('/quotation');
+    await waitForHydration(page);
+    for (let step = 1; step <= 4; step++) await page.getByRole('button', { name: 'Next' }).click();
+    const input = page.locator('input[type=file]');
+    const file = { name: 'retry.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(100) };
+    const row = page.locator('li').filter({ has: page.getByText('retry.pdf', { exact: true }) });
+    await input.setInputFiles(file);
+    await expect(row).toContainText('Check your connection and try again.');
+    await row.getByRole('button', { name: 'Remove' }).click();
+    await input.setInputFiles(file);
+    await expect(row).toContainText('The maximum file size is 4 MB per attachment.');
+    await row.getByRole('button', { name: 'Remove' }).click();
+    await input.setInputFiles(file);
+    await expect(row).toContainText('uploaded');
+  });
+
   test('a deliberately invalid step 1 shows errors and does not advance', async ({ page }) => {
     await page.goto('/quotation');
     await waitForHydration(page);
