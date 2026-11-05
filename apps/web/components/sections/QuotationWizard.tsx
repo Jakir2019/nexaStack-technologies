@@ -107,6 +107,7 @@ export function QuotationWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
   const [serverError, setServerError] = useState<string | null>(null);
+  const [uploadsPending, setUploadsPending] = useState(false);
   const [referenceNumber, setReferenceNumber] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | undefined>(undefined);
   // A Turnstile token is single-use, so after any failed submit the widget is remounted (new key)
@@ -120,6 +121,7 @@ export function QuotationWizard() {
   }, []);
   const announcement = `Step ${currentStep} of ${TOTAL_STEPS}: ${STEP_NAMES[currentStep - 1]}`;
   const hasRestored = useRef(false);
+  const submissionId = useRef<string | undefined>(undefined);
 
   const form = useForm<QuotationFormFields, unknown, QuotationInput>({
     resolver: zodResolver(quotationSchema) as unknown as Resolver<
@@ -146,6 +148,8 @@ export function QuotationWizard() {
     if (hasRestored.current) return;
     hasRestored.current = true;
     try {
+      submissionId.current ??= window.sessionStorage.getItem(`${STORAGE_KEY}-submission`) ?? crypto.randomUUID();
+      window.sessionStorage.setItem(`${STORAGE_KEY}-submission`, submissionId.current);
       const saved = window.sessionStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<QuotationFormFields>;
@@ -185,13 +189,14 @@ export function QuotationWizard() {
   const handleBack = useCallback(() => goToStep(currentStep - 1), [currentStep, goToStep]);
 
   const onSubmit = handleSubmit(async (data) => {
+    if (uploadsPending) { setServerError('Please wait for your attachments to finish uploading.'); return; }
     setServerError(null);
     setStatus('submitting');
 
     try {
       const response = await fetch('/api/quotation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Submission-Id': submissionId.current ??= crypto.randomUUID() },
         body: JSON.stringify({ ...data, turnstileToken }),
       });
       const body = (await response.json()) as ApiResponse<{ referenceNumber: string }>;
@@ -209,6 +214,7 @@ export function QuotationWizard() {
       window.scrollTo(0, 0);
       try {
         window.sessionStorage.removeItem(STORAGE_KEY);
+        window.sessionStorage.removeItem(`${STORAGE_KEY}-submission`);
       } catch {
         // Nothing to clean up if storage was never available.
       }
@@ -256,7 +262,7 @@ export function QuotationWizard() {
           {currentStep === 2 && <QuotationStepProject form={form} />}
           {currentStep === 3 && <QuotationStepRequirements form={form} />}
           {currentStep === 4 && <QuotationStepBudget form={form} />}
-          {currentStep === 5 && <QuotationStepFinal form={form} onEditStep={goToStep} />}
+          {currentStep === 5 && <QuotationStepFinal form={form} onUploadsPending={setUploadsPending} onEditStep={(step) => { if (!uploadsPending) goToStep(step); }} />}
         </div>
 
         {/* Bot check on the final step only; renders nothing until a Turnstile site key is set. */}
@@ -273,7 +279,7 @@ export function QuotationWizard() {
             type="button"
             variant="secondary"
             onClick={handleBack}
-            disabled={currentStep === 1 || formState.isSubmitting}
+            disabled={currentStep === 1 || formState.isSubmitting || uploadsPending}
             className={currentStep === 1 ? 'invisible' : undefined}
           >
             Back
@@ -284,7 +290,7 @@ export function QuotationWizard() {
               Next
             </Button>
           ) : (
-            <Button type="submit" disabled={formState.isSubmitting}>
+            <Button type="submit" disabled={formState.isSubmitting || uploadsPending}>
               {formState.isSubmitting ? 'Submitting…' : 'Submit request'}
             </Button>
           )}

@@ -14,6 +14,7 @@ import { assertSafeTestUri } from '../../../scripts/lib/mongod.mjs';
  */
 
 export interface SetupOptions {
+  storage?: boolean;
   /** `TURNSTILE_SECRET_KEY`; undefined leaves it unset (the "not configured" case). */
   turnstileSecret?: string;
   /** `CLOUDINARY_CLOUD_NAME`, which decides which attachment URLs count as "ours". */
@@ -58,11 +59,12 @@ export async function setupWeb(options: SetupOptions = {}) {
 
   env['NODE_ENV'] = 'test';
   env['MONGODB_URI'] = mongoUri;
+  env['NEXT_PUBLIC_SITE_URL'] = 'http://localhost:3000';
   // Never `env[x] = undefined`: process.env stores that as the STRING "undefined", which would read as "configured".
   setOrDelete('TURNSTILE_SECRET_KEY', options.turnstileSecret);
   setOrDelete('CLOUDINARY_CLOUD_NAME', options.cloudName);
-  delete env['CLOUDINARY_API_KEY'];
-  delete env['CLOUDINARY_API_SECRET'];
+  setOrDelete('CLOUDINARY_API_KEY', options.storage ? 'test-key' : undefined);
+  setOrDelete('CLOUDINARY_API_SECRET', options.storage ? 'test-secret' : undefined);
   delete env['RESEND_API_KEY'];
 
   const { default: mongoose } = await import('mongoose');
@@ -85,7 +87,7 @@ export async function setupWeb(options: SetupOptions = {}) {
   ): Promise<JsonReply> {
     const request = new Request('http://localhost:3000/api/test', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-forwarded-for': init.ip ?? freshIp() },
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000', 'x-submission-id': randomUUID(), 'x-forwarded-for': init.ip ?? freshIp() },
       body: init.raw ? String(body) : JSON.stringify(body),
     });
     const response = await handler(request);

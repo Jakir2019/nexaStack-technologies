@@ -8,6 +8,7 @@ const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
 
 interface TurnstileRenderOptions {
   sitekey: string;
+  action?: string;
   callback: (token: string) => void;
   'expired-callback'?: () => void;
   'error-callback'?: () => void;
@@ -39,6 +40,7 @@ function loadTurnstileScript(): Promise<void> {
 }
 
 export interface TurnstileWidgetProps {
+  action?: string;
   onVerify: (token: string) => void;
   onExpire: () => void;
 }
@@ -51,7 +53,7 @@ export interface TurnstileWidgetProps {
  * server-side (`lib/turnstile.ts`): skipped with a warning in development, refused (503) in
  * production, so a missing key can never quietly disable bot protection on a live site.
  */
-export function TurnstileWidget({ onVerify, onExpire }: TurnstileWidgetProps) {
+export function TurnstileWidget({ onVerify, onExpire, action }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetId = useId();
   const siteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
@@ -67,6 +69,7 @@ export function TurnstileWidget({ onVerify, onExpire }: TurnstileWidgetProps) {
         if (cancelled || !containerRef.current || !window.turnstile) return;
         renderedId = window.turnstile.render(containerRef.current, {
           sitekey: siteKey,
+          ...(action ? { action } : {}),
           callback: onVerify,
           'expired-callback': onExpire,
           'error-callback': onExpire,
@@ -80,7 +83,7 @@ export function TurnstileWidget({ onVerify, onExpire }: TurnstileWidgetProps) {
       cancelled = true;
       if (renderedId && window.turnstile) window.turnstile.remove(renderedId);
     };
-  }, [siteKey, onVerify, onExpire]);
+  }, [siteKey, onVerify, onExpire, action]);
 
   if (!siteKey) return null;
 

@@ -3,6 +3,7 @@ import {
   ATTACHMENT_MAX_SIZE_BYTES,
   ATTACHMENT_REQUEST_SIZE_ERROR,
   attachmentSizeSchema,
+  quotationUploadIdSchema,
   ERROR_CODES,
   sniffFileType,
   type ApiResponse,
@@ -10,7 +11,9 @@ import {
 import { NextResponse } from 'next/server';
 
 import { isCloudinaryConfigured, uploadBufferToCloudinary } from '@/lib/cloudinary';
-import { checkQuotationUploadRateLimit, getClientIp } from '@/lib/quotationRateLimit';
+import { activeUploadSession, reserveUpload, finishUpload } from '@/lib/quotationUploadLifecycle';
+import { uploadPolicy } from '@/lib/quotationUploadPolicy';
+import { hashCredential, requireUploadOrigin, UploadError, uploadErrorResponse, uploadRateLimit, uploadToken } from '@/lib/quotationUploadSecurity';
 import { readQuotationUpload, UploadRequestTooLargeError } from '@/lib/quotationUploadRequest';
 
 /**
@@ -40,15 +43,18 @@ function jsonError(
 }
 
 export async function POST(request: Request): Promise<NextResponse<ApiResponse<unknown>>> {
-  const ip = getClientIp(request);
-  const rateLimit = checkQuotationUploadRateLimit(ip);
-  if (!rateLimit.allowed) {
-    return jsonError(
-      429,
-      ERROR_CODES.RATE_LIMITED,
-      'Too many uploads have been sent from your connection. Please wait 15 minutes and try again.',
-    );
-  }
+  let token: string;
+  let uploadId: string;
+  try {
+    requireUploadOrigin(request);
+    await uploadRateLimit('upload-global', uploadPolicy.globalRequests);
+    token = uploadToken(request);
+    await activeUploadSession(token);
+    await uploadRateLimit(`upload:${hashCredential(token)}`, uploadPolicy.attempts);
+    const parsed = quotationUploadIdSchema.safeParse(request.headers.get('x-upload-id'));
+    if (!parsed.success) throw new UploadError(400, 'The upload identifier is invalid. Please select the file again.');
+    uploadId = parsed.data;
+  } catch (error) { return uploadErrorResponse(error); }
 
   let formData: FormData;
   try {
@@ -98,10 +104,15 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<u
   }
 
   try {
-    const result = await uploadBufferToCloudinary(buffer, file.name);
+    const reservation = await reserveUpload(token, uploadId, file.size, sniffedType);
+    if (reservation.existing) return jsonSuccess({ url: reservation.asset.url!, name: file.name, size: file.size });
+    const result = await uploadBufferToCloudinary(buffer, file.name, reservation.asset.publicId);
+    await finishUpload(token, uploadId, result.url);
     return jsonSuccess({ url: result.url, name: file.name, size: file.size });
   } catch (err) {
-    console.error('[quotation] Failed to upload attachment', err);
+    if (err instanceof UploadError) return uploadErrorResponse(err);
+    // Keep the pre-persisted reservation for cleanup: the remote write may have succeeded.
+    console.error('[quotation] Failed to confirm tracked upload');
     return jsonError(500, ERROR_CODES.INTERNAL_ERROR, 'Something went wrong uploading that file. Please try again.');
   }
 }

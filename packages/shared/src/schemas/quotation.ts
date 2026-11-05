@@ -117,6 +117,10 @@ export const attachmentSizeSchema = z.number().int()
 export const ATTACHMENT_ACCEPTED_TYPES = ['application/pdf', 'image/png', 'image/jpeg'] as const;
 export const ATTACHMENT_ACCEPTED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'] as const;
 
+export const quotationUploadAuthorizationSchema = z.object({ turnstileToken: z.string().min(1).max(2048) });
+export const quotationUploadIdSchema = z.uuid();
+export const quotationUploadRemovalSchema = z.object({ url: z.url().max(2048) });
+
 /** `YYYY-MM-DD` that is also a real calendar day: `2026-02-31` and `2026-13-45` match the shape but are not dates. */
 function isRealCalendarDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);

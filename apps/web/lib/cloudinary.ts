@@ -21,7 +21,6 @@ import { serverEnv } from './env.server';
  * moves the ones that already exist.
  */
 
-const CLOUDINARY_FOLDER = 'nexastack/quotations';
 const DELIVERY_TYPE = 'authenticated';
 
 export function isCloudinaryConfigured(): boolean {
@@ -39,6 +38,7 @@ export interface CloudinaryUploadResult {
 export async function uploadBufferToCloudinary(
   buffer: Buffer,
   filename: string,
+  publicId: string,
 ): Promise<CloudinaryUploadResult> {
   const cloudName = serverEnv.CLOUDINARY_CLOUD_NAME;
   const apiKey = serverEnv.CLOUDINARY_API_KEY;
@@ -50,18 +50,22 @@ export async function uploadBufferToCloudinary(
   const timestamp = Math.floor(Date.now() / 1000).toString();
   // Cloudinary signs every parameter sent except file, cloud_name, resource_type and api_key,
   // sorted alphabetically as `key=value&key=value...` with the API secret appended.
-  const paramsToSign = `folder=${CLOUDINARY_FOLDER}&timestamp=${timestamp}&type=${DELIVERY_TYPE}`;
+  if (!/^nexastack\/quotations\/q_[a-f0-9]{32}$/.test(publicId)) throw new Error('Invalid tracked upload identity');
+  const paramsToSign = `overwrite=false&public_id=${publicId}&timestamp=${timestamp}&type=${DELIVERY_TYPE}`;
   const signature = createHash('sha1').update(paramsToSign + apiSecret).digest('hex');
 
   const form = new FormData();
   form.append('file', new Blob([new Uint8Array(buffer)]), filename);
   form.append('api_key', apiKey);
   form.append('timestamp', timestamp);
-  form.append('folder', CLOUDINARY_FOLDER);
+  form.append('public_id', publicId);
+  form.append('overwrite', 'false');
   form.append('type', DELIVERY_TYPE);
   form.append('signature', signature);
 
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+  // PDF, PNG and JPEG use Cloudinary's image resource type. Fix it before upload so a
+  // terminated worker can delete the exact asset without guessing a resource type.
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
     method: 'POST',
     body: form,
     // Leave time for parsing and a controlled error within Netlify's 60-second execution limit.
@@ -85,7 +89,7 @@ export async function uploadBufferToCloudinary(
   if (data.type !== DELIVERY_TYPE) {
     throw new Error('Cloudinary did not store the upload as authenticated');
   }
-  if (!data.public_id || !data.resource_type || typeof data.version !== 'number') {
+  if (data.public_id !== publicId || data.resource_type !== 'image' || typeof data.version !== 'number' || data.bytes !== buffer.length || !['pdf', 'png', 'jpg', 'jpeg'].includes(data.format ?? '')) {
     throw new Error('Cloudinary returned an unexpected upload response');
   }
 
@@ -95,6 +99,19 @@ export async function uploadBufferToCloudinary(
   const extension = data.format ? `.${data.format}` : '';
   const url = `https://res.cloudinary.com/${cloudName}/${data.resource_type}/${DELIVERY_TYPE}/v${data.version}/${data.public_id}${extension}`;
   return { url, bytes: data.bytes, format: data.format ?? '' };
+}
+
+/** Only tracked lifecycle IDs can be destroyed. Never accepts arbitrary URLs or folders. */
+export async function deleteQuotationAsset(asset: { cloudName: string; publicId: string; resourceType: string; deliveryType: string }): Promise<void> {
+  if (asset.cloudName !== serverEnv.CLOUDINARY_CLOUD_NAME || !/^nexastack\/quotations\/q_[a-f0-9]{32}$/.test(asset.publicId) || asset.resourceType !== 'image' || asset.deliveryType !== DELIVERY_TYPE) throw new Error('Refusing unowned asset deletion');
+  if (!isCloudinaryConfigured()) throw new Error('Storage unavailable');
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const parameters = `public_id=${asset.publicId}&timestamp=${timestamp}&type=${DELIVERY_TYPE}`;
+  const signature = createHash('sha1').update(parameters + serverEnv.CLOUDINARY_API_SECRET).digest('hex');
+  const body = new URLSearchParams({ public_id: asset.publicId, timestamp, type: DELIVERY_TYPE, signature, api_key: serverEnv.CLOUDINARY_API_KEY! });
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${serverEnv.CLOUDINARY_CLOUD_NAME}/image/destroy`, { method: 'POST', body, signal: AbortSignal.timeout(5_000) });
+  const result = await response.json() as { result?: string };
+  if (!response.ok || !['ok', 'not found'].includes(result.result ?? '')) throw new Error('Storage deletion failed');
 }
 
 // File-type detection by magic number is `sniffFileType` in `@nexastack/shared`: the one implementation,

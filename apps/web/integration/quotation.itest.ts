@@ -76,13 +76,9 @@ describe('a valid quotation request', () => {
     assert.equal(numbers.size, 8);
   });
 
-  it('accepts an attachment that THIS site uploaded, and stores its URL', async () => {
+  it('rejects a plausible Cloudinary URL without proof of session ownership', async () => {
     const reply = await web.postQuotation({ ...validQuotation, attachments: [OWN_ATTACHMENT] });
-    assert.equal(reply.status, 201);
-    const stored = await web.quotations.findOne({
-      referenceNumber: reply.body.data?.['referenceNumber'] as string,
-    });
-    assert.deepEqual(stored?.attachments, [OWN_ATTACHMENT]);
+    assert.equal(reply.status, 401);
   });
 
   it('accepts optional fields (reference websites, target completion date, additional message)', async () => {
@@ -263,16 +259,16 @@ describe('rate limiting (10 per IP per 15 minutes)', () => {
 });
 
 describe('a failure while saving', () => {
-  it('is a generic 500 with no leak and no hook; nothing half-saved; a retry succeeds', async () => {
+  it('is a generic 503 with no leak and no hook; the outbox preserves recovery', async () => {
     const secret =
       'MongoServerError: mongodb://leak-user:leak-pass@internal-host:27017/prod at /srv/app/x.js';
-    const create = mock.method(web.QuotationSubmission, 'create', () =>
+    const create = mock.method(web.QuotationSubmission, 'updateOne', () =>
       Promise.reject(new Error(secret)),
     );
     const before = await web.quotations.countDocuments();
     const reply = await web.postQuotation(validQuotation);
-    assert.equal(reply.status, 500);
-    assert.equal(reply.body.error?.code, 'INTERNAL_ERROR');
+    assert.equal(reply.status, 503);
+    assert.equal(reply.body.error?.code, 'SERVICE_UNAVAILABLE');
     for (const leaked of ['leak-user', 'leak-pass', 'internal-host', 'MongoServerError', 'x.js'])
       assert.ok(!reply.text.includes(leaked), leaked);
     assert.equal(hookCalls().length, 0);

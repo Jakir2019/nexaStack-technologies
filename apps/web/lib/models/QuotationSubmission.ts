@@ -78,6 +78,7 @@ const quotationSubmissionSchema = new Schema(
 );
 
 quotationSubmissionSchema.index({ createdAt: -1 });
+quotationSubmissionSchema.index({ attachments: 1 });
 quotationSubmissionSchema.index({ archived: 1, status: 1, createdAt: -1 });
 
 export type QuotationSubmissionDocument = InferSchemaType<typeof quotationSubmissionSchema>;

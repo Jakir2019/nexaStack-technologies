@@ -9,7 +9,7 @@ export type TurnstileVerification =
   | { outcome: 'unavailable' };
 
 /** Which public form is asking; only used to label the log line. */
-export type TurnstileContext = 'contact' | 'quotation';
+export type TurnstileContext = 'contact' | 'quotation' | 'quotation-upload';
 
 /**
  * Verifies a Cloudflare Turnstile token server-side (root CLAUDE.md 5, 11.4), for both public forms.
@@ -26,7 +26,7 @@ export async function verifyTurnstileToken(
   context: TurnstileContext,
 ): Promise<TurnstileVerification> {
   if (!serverEnv.TURNSTILE_SECRET_KEY) {
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' || context === 'quotation-upload') {
       console.error(
         `[${context}] TURNSTILE_SECRET_KEY is not set in production — refusing the submission. Configure it.`,
       );
@@ -38,14 +38,19 @@ export async function verifyTurnstileToken(
     return { outcome: 'skipped' };
   }
 
-  if (!token) return { outcome: 'failed' };
+  if (!token || token.length > 2048) return { outcome: 'failed' };
 
   const body = new URLSearchParams({ secret: serverEnv.TURNSTILE_SECRET_KEY, response: token });
 
   try {
-    const response = await fetch(VERIFY_URL, { method: 'POST', body });
-    const result = (await response.json()) as { success?: boolean };
-    return result.success ? { outcome: 'passed' } : { outcome: 'failed' };
+    const response = await fetch(VERIFY_URL, { method: 'POST', body, signal: AbortSignal.timeout(8_000) });
+    const result = (await response.json()) as { success?: boolean; hostname?: string; action?: string };
+    if (!response.ok || result.success !== true) return { outcome: 'failed' };
+    if (context === 'quotation-upload') {
+      const hostname = new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').hostname;
+      if (result.hostname !== hostname || result.action !== 'quotation-upload') return { outcome: 'failed' };
+    }
+    return { outcome: 'passed' };
   } catch (err) {
     console.error(`[${context}] Turnstile verification request failed`, err);
     return { outcome: 'failed' };

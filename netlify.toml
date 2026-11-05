@@ -1,0 +1,4 @@
+# Keep the Netlify base directory at repository root. Next.js build/package settings are
+# configured in the dashboard as documented in README.md.
+[functions]
+  directory = "netlify/functions"

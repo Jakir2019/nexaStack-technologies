@@ -1,10 +1,10 @@
-import { quotationSchema, ERROR_CODES, type ApiResponse } from '@nexastack/shared';
-import mongoose from 'mongoose';
+import { quotationSchema, quotationUploadIdSchema, ERROR_CODES, type ApiResponse } from '@nexastack/shared';
 import { NextResponse } from 'next/server';
 
 import { isOwnAttachmentUrl } from '@/lib/cloudinary';
-import { connectToDatabase } from '@/lib/mongodb';
-import { QuotationSubmission } from '@/lib/models/QuotationSubmission';
+import { commitQuotation, commitUnattachedQuotation, retryQuotation, revokeUnusedSession } from '@/lib/quotationUploadLifecycle';
+import { requireUploadOrigin, uploadToken, uploadErrorResponse, uploadRateLimit } from '@/lib/quotationUploadSecurity';
+import { uploadPolicy } from '@/lib/quotationUploadPolicy';
 import { notifyQuotationSubmission } from '@/lib/notifications';
 import { checkQuotationRateLimit, getClientIp } from '@/lib/quotationRateLimit';
 import { verifyTurnstileToken } from '@/lib/turnstile';
@@ -38,6 +38,7 @@ function jsonError(
 }
 
 export async function POST(request: Request): Promise<NextResponse<ApiResponse<unknown>>> {
+  try { requireUploadOrigin(request); } catch (error) { return uploadErrorResponse(error); }
   const ip = getClientIp(request);
   const rateLimit = checkQuotationRateLimit(ip);
   if (!rateLimit.allowed) {
@@ -96,6 +97,21 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<u
     );
   }
 
+  const nonce = quotationUploadIdSchema.safeParse(request.headers.get('x-submission-id'));
+  if (!nonce.success) return jsonError(400, ERROR_CODES.VALIDATION_ERROR, 'Please reload the quotation form and try again.');
+  let token: string | undefined;
+  let unusedToken: string | undefined;
+  try {
+    await uploadRateLimit('quotation-submit-global', uploadPolicy.submitRequests);
+    if (parsed.data.attachments?.length) token = uploadToken(request);
+    else { try { unusedToken = uploadToken(request); } catch { /* Optional upload session. */ } }
+    const previous = await retryQuotation(token ?? `submission:${nonce.data}`, parsed.data);
+    if (previous) {
+      if (unusedToken) await revokeUnusedSession(unusedToken);
+      return jsonSuccess({ referenceNumber: previous });
+    }
+  } catch (error) { return uploadErrorResponse(error); }
+
   const verification = await verifyTurnstileToken(
     typeof turnstileToken === 'string' ? turnstileToken : undefined,
     'quotation',
@@ -115,21 +131,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<u
     );
   }
 
-  // Generated before insert so the confirmation number is derived from the same _id that gets
-  // persisted, never a value generated only for display and disconnected from a real record.
-  const _id = new mongoose.Types.ObjectId();
-  const referenceNumber = `NXQ-${_id.toHexString().slice(-8).toUpperCase()}`;
-
+  let referenceNumber: string;
   try {
-    await connectToDatabase();
-    await QuotationSubmission.create({ _id, ...parsed.data, referenceNumber });
+    referenceNumber = token ? await commitQuotation(token, parsed.data) : await commitUnattachedQuotation(nonce.data, parsed.data);
+    if (unusedToken) await revokeUnusedSession(unusedToken);
   } catch (err) {
-    console.error('[quotation] Failed to persist submission', err);
-    return jsonError(
-      500,
-      ERROR_CODES.INTERNAL_ERROR,
-      'Something went wrong on our end. Please try again in a moment.',
-    );
+    return uploadErrorResponse(err);
   }
 
   // Deferred email hook, now in one shared place (lib/notifications.ts) instead of a copy here.

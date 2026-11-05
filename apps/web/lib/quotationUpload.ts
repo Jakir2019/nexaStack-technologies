@@ -20,9 +20,17 @@ export function quotationFileError(file: Pick<File, 'name' | 'size'>): string | 
 type UploadData = { url: string; name: string; size: number };
 
 /** One file per HTTP request. Only a successful response can become a quotation reference. */
-export async function uploadQuotationAttachment(file: File): Promise<ApiResponse<UploadData>> {
+let uploadQueue: Promise<unknown> = Promise.resolve();
+const uploadIds = new WeakMap<File, string>();
+export function uploadQuotationAttachment(file: File): Promise<ApiResponse<UploadData>> {
+  const result = uploadQueue.then(() => sendQuotationAttachment(file));
+  uploadQueue = result.catch(() => {});
+  return result;
+}
+async function sendQuotationAttachment(file: File): Promise<ApiResponse<UploadData>> {
   const error = quotationFileError(file);
   if (error) throw new Error(error);
+  if (!uploadIds.has(file)) uploadIds.set(file, crypto.randomUUID());
   const form = new FormData();
   form.append('file', file);
   // Serialize once so the exact multipart bytes (including unusual filenames) can be checked
@@ -34,7 +42,7 @@ export async function uploadQuotationAttachment(file: File): Promise<ApiResponse
   try {
     response = await fetch('/api/quotation/upload', {
       method: 'POST',
-      headers: { 'Content-Type': encoded.headers.get('content-type')! },
+      headers: { 'Content-Type': encoded.headers.get('content-type')!, 'X-Upload-Id': uploadIds.get(file)! },
       body,
     });
   } catch {

@@ -75,6 +75,7 @@ const quotationSubmissionSchema = new Schema(
 // Same reasoning as ContactSubmission: the "active" list filters `archived $ne true` and sorts by
 // `createdAt`, which the standalone `createdAt` index serves. Kept identical to the web mirror.
 quotationSubmissionSchema.index({ createdAt: -1 });
+quotationSubmissionSchema.index({ attachments: 1 });
 quotationSubmissionSchema.index({ archived: 1, status: 1, createdAt: -1 });
 
 export type QuotationSubmissionDocument = InferSchemaType<typeof quotationSubmissionSchema>;

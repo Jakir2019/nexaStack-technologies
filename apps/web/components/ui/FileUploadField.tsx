@@ -20,6 +20,8 @@ interface UploadEntry {
 }
 
 export interface FileUploadFieldProps {
+  disabled?: boolean;
+  onUploadsPending?: (pending: boolean) => void;
   id: string;
   initialUrls?: string[];
   onFilesChange: (urls: string[]) => void;
@@ -48,7 +50,7 @@ function formatSize(bytes: number): string {
  * form (root CLAUDE.md 10). Drag-and-drop is a progressive enhancement over the native file
  * input, which alone is fully keyboard/AT operable.
  */
-export function FileUploadField({ id, initialUrls, onFilesChange, describedById }: FileUploadFieldProps) {
+export function FileUploadField({ id, initialUrls, onFilesChange, describedById, disabled = false, onUploadsPending }: FileUploadFieldProps) {
   // Re-hydrates from URLs already in the form (e.g. the user went Back then Next again — this
   // component remounts, but React Hook Form kept the `attachments` field value) so a previously
   // uploaded file doesn't visually disappear even though it's still part of the submission.
@@ -62,10 +64,12 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
     })),
   );
   const [announcement, setAnnouncement] = useState('');
+  const [actionError, setActionError] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const liveRegionId = useId();
 
   useEffect(() => {
+    onUploadsPending?.(entries.some(entry => entry.status === 'uploading'));
     onFilesChange(
       entries.filter((entry) => entry.status === 'done' && entry.url).map((entry) => entry.url!),
     );
@@ -103,7 +107,7 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
 
   const handleFiles = useCallback(
     (list: FileList | null) => {
-      if (!list || list.length === 0) return;
+      if (disabled || !list || list.length === 0) return;
 
       const room = ATTACHMENT_MAX_FILES - entries.length;
       if (room <= 0) {
@@ -140,16 +144,25 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
         if (entry.status === 'uploading') void uploadOne(entry.id, incoming[index]!);
       });
     },
-    [entries.length, uploadOne],
+    [entries.length, uploadOne, disabled],
   );
 
-  const removeEntry = useCallback((entryId: string) => {
+  const removeEntry = useCallback(async (entryId: string) => {
+    setActionError('');
+    const entry = entries.find(value => value.id === entryId);
+    if (entry?.status === 'uploading') return;
+    if (entry?.url) {
+      try {
+        const response = await fetch('/api/quotation/upload/session', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: entry.url }) });
+        if (!response.ok) { setActionError('Renew attachment permission, then try removing the file again.'); return; }
+      } catch { setActionError('Unable to remove the file. Check your connection and retry.'); return; }
+    }
     setEntries((prev) => {
       const removed = prev.find((entry) => entry.id === entryId);
       if (removed) setAnnouncement(`${removed.name} removed.`);
       return prev.filter((entry) => entry.id !== entryId);
     });
-  }, []);
+  }, [entries]);
 
   return (
     <div>
@@ -177,6 +190,7 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
         <input
           id={id}
           type="file"
+          disabled={disabled}
           multiple
           accept={ATTACHMENT_ACCEPTED_EXTENSIONS.join(',')}
           className="sr-only"
@@ -206,6 +220,7 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
               </div>
               <button
                 type="button"
+                disabled={entry.status === 'uploading'}
                 onClick={() => removeEntry(entry.id)}
                 className="shrink-0 rounded-field px-2 py-1 text-label text-error underline underline-offset-4 focus-ring"
               >
@@ -216,6 +231,7 @@ export function FileUploadField({ id, initialUrls, onFilesChange, describedById 
         </ul>
       )}
 
+      {actionError && <p role="alert" className="text-label text-error">{actionError}</p>}
       <p id={liveRegionId} role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>

@@ -157,8 +157,54 @@ const DRAFT = {
   consent: true,
 };
 
+/** Browser-only transport fixture. Real authorization/ownership is tested against MongoDB
+ * in quotation-uploads.itest.ts; this fixture never contacts Cloudinary. */
+async function mockAttachmentPermission(page: Page) {
+  await page.route('**/api/quotation/upload/session', route => route.fulfill({ json: {
+    success: true, data: { expiresAt: new Date(Date.now() + 600_000).toISOString(), urls: [] },
+  } }));
+}
+
 test.describe('quotation wizard', () => {
+  test('attachment authorization UI uses a separate challenge from final submission (mocked transport)', async ({ page }) => {
+    let authorized = false;
+    const attachment = 'https://res.cloudinary.com/test/image/authenticated/v1/nexastack/quotations/q_test.pdf';
+    await page.route('https://challenges.cloudflare.com/turnstile/v0/api.js', route => route.fulfill({ contentType: 'application/javascript', body: `window.turnstile = {
+      render: function (element, options) { setTimeout(function () { options.callback(options.action === 'quotation-upload' ? 'upload-token' : 'submission-token'); }, 0); return Math.random().toString(); },
+      remove: function () {}
+    };` }));
+    await page.route('**/api/quotation/upload/session', route => route.fulfill({ status: authorized ? 200 : 401, json: authorized ? { success: true, data: { expiresAt: new Date(Date.now() + 600_000).toISOString(), urls: [] } } : { success: false } }));
+    await page.route('**/api/quotation/upload/authorize', async route => {
+      expect(route.request().postDataJSON().turnstileToken).toBe('upload-token');
+      authorized = true;
+      await route.fulfill({ json: { success: true, data: { expiresAt: new Date(Date.now() + 600_000).toISOString() } } });
+    });
+    await page.route('**/api/quotation/upload', async route => {
+      expect(authorized).toBe(true);
+      expect(route.request().headers()['x-upload-id']).toMatch(/^[a-f0-9-]{36}$/);
+      await route.fulfill({ json: { success: true, data: { url: attachment, name: 'brief.pdf', size: 100 } } });
+    });
+    await page.route('**/api/quotation', async route => {
+      const body = route.request().postDataJSON();
+      expect(body.turnstileToken).toBe('submission-token');
+      expect(body.attachments).toEqual([attachment]);
+      await route.fulfill({ json: { success: true, data: { referenceNumber: 'NXQ-12345678' } } });
+    });
+    await page.addInitScript(draft => sessionStorage.setItem('nexastack-quotation-draft', JSON.stringify(draft)), DRAFT);
+    await page.goto('/quotation'); await waitForHydration(page);
+    for (let step = 1; step <= 4; step++) await page.getByRole('button', { name: 'Next' }).click();
+    const input = page.locator('input[type=file]');
+    await expect(input).toBeDisabled();
+    await page.getByRole('button', { name: 'Enable or renew attachments' }).click();
+    await expect(input).toBeEnabled();
+    await input.setInputFiles({ name: 'brief.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(100) });
+    await expect(page.locator('li').filter({ has: page.getByText('brief.pdf', { exact: true }) })).toContainText('uploaded');
+    await page.getByRole('button', { name: 'Submit request' }).click();
+    await expect(page.getByText('NXQ-12345678', { exact: false })).toBeVisible();
+  });
+
   test('attachments reject oversized selections, preserve fields, and allow removal and replacement', async ({ page }) => {
+    await mockAttachmentPermission(page);
     const requests: number[] = [];
     await page.route('**/api/quotation/upload', async (route) => {
       requests.push(route.request().postDataBuffer()!.length);
@@ -169,6 +215,7 @@ test.describe('quotation wizard', () => {
     await waitForHydration(page);
     for (let step = 1; step <= 4; step++) await page.getByRole('button', { name: 'Next' }).click();
     const input = page.locator('input[type=file]');
+    await expect(input).toBeEnabled();
     await input.setInputFiles([
       { name: 'brief.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(4 * 1024 * 1024) },
       { name: 'oversized.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(4 * 1024 * 1024 + 1) },
@@ -190,6 +237,7 @@ test.describe('quotation wizard', () => {
   });
 
   test('attachment network and platform failures show helpful errors and permit retry', async ({ page }) => {
+    await mockAttachmentPermission(page);
     let attempt = 0;
     await page.route('**/api/quotation/upload', async (route) => {
       attempt++;
@@ -202,6 +250,7 @@ test.describe('quotation wizard', () => {
     await waitForHydration(page);
     for (let step = 1; step <= 4; step++) await page.getByRole('button', { name: 'Next' }).click();
     const input = page.locator('input[type=file]');
+    await expect(input).toBeEnabled();
     const file = { name: 'retry.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(100) };
     const row = page.locator('li').filter({ has: page.getByText('retry.pdf', { exact: true }) });
     await input.setInputFiles(file);

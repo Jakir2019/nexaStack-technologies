@@ -14,7 +14,7 @@ import type { QuotationStepProps } from '@/components/sections/QuotationStepClie
 import { STEP_NAMES } from '@/components/sections/QuotationWizard';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { FieldError } from '@/components/ui/FieldError';
-import { FileUploadField } from '@/components/ui/FileUploadField';
+import { QuotationAttachments } from '@/components/sections/QuotationAttachments';
 import { Textarea } from '@/components/ui/Textarea';
 
 const REQUIRED_MARK = (
@@ -35,10 +35,11 @@ function yesNoLabel(value: boolean | undefined): string {
 
 export interface QuotationStepFinalProps extends QuotationStepProps {
   onEditStep: (step: number) => void;
+  onUploadsPending?: (pending: boolean) => void;
 }
 
 /** Step 5 — File attachments, consent, and a full review of steps 1–4 before submitting. */
-export function QuotationStepFinal({ form, onEditStep }: QuotationStepFinalProps) {
+export function QuotationStepFinal({ form, onEditStep, onUploadsPending }: QuotationStepFinalProps) {
   const {
     register,
     control,
@@ -57,11 +58,12 @@ export function QuotationStepFinal({ form, onEditStep }: QuotationStepFinalProps
             control={control}
             name="attachments"
             render={({ field }) => (
-              <FileUploadField
+              <QuotationAttachments
                 id="attachments"
                 initialUrls={field.value}
                 onFilesChange={field.onChange}
                 describedById="attachments-error"
+                onUploadsPending={onUploadsPending}
               />
             )}
           />
