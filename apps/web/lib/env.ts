@@ -38,9 +38,24 @@ const webEnvSchema = z.object({
       emptyToUndefined,
       isProduction
         ? z.url({ protocol: /^https?$/, error: 'is required for production builds but not set' })
-        : z.url().default('http://localhost:4000'),
+        : z.url({ protocol: /^https?$/ }).default('http://localhost:4000'),
     )
-    .transform((url) => url.replace(/\/+$/, '')),
+    .transform((url) => url.replace(/\/+$/, ''))
+    .refine((value) => {
+      // Callers already supply /api/v1. A path, query or fragment here changes the
+      // requested endpoint; reject it instead of silently sending requests to a 404.
+      const url = URL.parse(value);
+      if (!url) return false;
+      return (
+        url.pathname === '/' &&
+        !url.search &&
+        !url.hash &&
+        !url.username &&
+        !url.password &&
+        !value.includes('?') &&
+        !value.includes('#')
+      );
+    }, 'must be an http(s) origin only, without /api/v1, another path, query, fragment or credentials'),
 });
 
 // NEXT_PUBLIC_* variables must be referenced literally so Next.js can inline them.
