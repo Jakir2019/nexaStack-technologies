@@ -60,11 +60,12 @@ export const viewport: Viewport = {
 };
 
 // Site-wide Organization JSON-LD (root CLAUDE.md section 13). Real, already-established facts
-// only: legal name, site URL, the founder's actual name/title, and the two real social profiles.
+// only: company identity, public business email, founder and social profiles.
 const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: company.legalName,
+  email: company.email.general,
   url: env.NEXT_PUBLIC_SITE_URL,
   logo: `${env.NEXT_PUBLIC_SITE_URL}/brand/nexastack-mark.png`,
   founder: {

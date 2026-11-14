@@ -304,7 +304,10 @@ export default function TermsAndConditionsPage() {
               <p className="font-medium text-primary">{company.legalName}</p>
               <p>{company.address.full}</p>
               <p>
-                <a href={company.email.href} className={LINK_CLASSES}>
+                <a
+                  href={company.email.href}
+                  className="inline-block min-h-11 content-center rounded-field text-primary-blue underline underline-offset-4 wrap-anywhere focus-ring hover:text-primary-blue-hover"
+                >
                   {company.email.general}
                 </a>
               </p>

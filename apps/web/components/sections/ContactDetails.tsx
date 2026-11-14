@@ -11,7 +11,7 @@ const LIST_LINK_CLASSES =
  */
 export function ContactDetails() {
   return (
-    <div className="space-y-10">
+    <div className="min-w-0 space-y-10">
       <div>
         <h2 className="text-card font-semibold tracking-tight text-primary">Contact Details</h2>
         <address className="mt-4 space-y-3 text-body text-secondary not-italic">
@@ -21,11 +21,32 @@ export function ContactDetails() {
               {company.phone.display}
             </a>
           </p>
-          <p>
-            <a href={company.email.href} className={LIST_LINK_CLASSES}>
-              {company.email.general}
-            </a>
-          </p>
+          <dl className="space-y-3">
+            <div>
+              <dt className="text-label font-semibold text-primary">Business Email</dt>
+              <dd>
+                <a
+                  href={company.email.href}
+                  aria-label={`Business Email: ${company.email.general}`}
+                  className="block min-h-11 content-center rounded-field font-semibold wrap-anywhere text-primary-blue underline-offset-4 focus-ring hover:text-primary-blue-hover hover:underline"
+                >
+                  {company.email.general}
+                </a>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-label font-medium text-secondary">Alternative Email</dt>
+              <dd>
+                <a
+                  href={company.email.secondaryHref}
+                  aria-label={`Alternative Email: ${company.email.secondary}`}
+                  className="block min-h-11 content-center rounded-field wrap-anywhere text-secondary underline-offset-4 focus-ring hover:text-primary-blue-hover hover:underline"
+                >
+                  {company.email.secondary}
+                </a>
+              </dd>
+            </div>
+          </dl>
         </address>
         <div className="mt-4">
           <WhatsAppLink />

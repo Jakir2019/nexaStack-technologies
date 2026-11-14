@@ -8,6 +8,12 @@ This pnpm monorepo uses Next.js, Express, MongoDB, and a shared validation packa
 
 This guide describes current code, not every intention in older documents. Company facts live in [company.ts](apps/web/config/company.ts). Read the canonical [CLAUDE.md](CLAUDE.md), referenced by [AGENTS.md](AGENTS.md), before contributing.
 
+**Primary Contact Email:** [info@nexastacktechnologies.com](mailto:info@nexastacktechnologies.com)
+
+**Alternative Contact Email:** [info.nexastacktechnologies@gmail.com](mailto:info.nexastacktechnologies@gmail.com)
+
+These public contact addresses are maintained in `company.email`. The domain address receives mail through Cloudflare Email Routing; these contact details do not configure or verify transactional sending identities.
+
 ## Table of contents
 
 - [Implementation status and functionality](#implementation-status-and-functionality)
@@ -673,7 +679,7 @@ Priorities grounded in current gaps:
 1. **Launch:** settle domain and implement/test cookie topology; choose/connect transactional email for resets and submission notifications/confirmations. Align copy that implies email confirmation with actual delivery.
 2. **Operations:** configure protected automated DB/media backups, prove restores, set monitoring/retention policies, and verify staging providers/HTTPS/session behavior.
 3. **Scaling/abuse:** replace process-local rate limits before multi-instance reliance; review public upload/body limits, orphan cleanup and scanning. Public blog filtering currently loads all published summaries.
-4. **Content:** finish portfolio/screenshots, replace disclosed demo testimonials with permissioned feedback, finalize legal/business/contact details and brand variants. This README does not resolve company email/domain or other open business decisions.
+4. **Content:** finish portfolio/screenshots, replace disclosed demo testimonials with permissioned feedback, finalize remaining legal/business details and brand variants. The official public contact emails are documented above; other open business decisions remain separate.
 5. **Optional expansion:** settings and static marketing CMS modules remain unbuilt; implement after scope decisions. Richer article media editing is also absent.
 
 Older notes that quotation backend is unresolved are stale: submission, references, attachments and admin management exist. Conversely, instruction tables mentioning TanStack Query, Swagger, Sentry, automated backups or email do not establish those integrations. Inspection cannot prove live deployment, legal suitability, accessibility certification or production performance.

@@ -126,7 +126,10 @@ export function WhatsAppWidget() {
           <div className="mt-4 space-y-2 border-t border-default pt-4 text-label text-secondary">
             <p>Prefer another way to reach us?</p>
             <p>
-              <a href={company.email.href} className={LINK_CLASSES}>
+              <a
+                href={company.email.href}
+                className="inline-block min-h-11 content-center rounded-field wrap-anywhere text-primary-blue underline underline-offset-4 focus-ring hover:text-primary-blue-hover"
+              >
                 {company.email.general}
               </a>
             </p>

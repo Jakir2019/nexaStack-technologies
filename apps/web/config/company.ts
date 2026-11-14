@@ -19,6 +19,8 @@ function deepFreeze<T extends object>(value: T): DeepReadonly<T> {
 }
 
 const legalName = 'NexaStack Technologies';
+const primaryEmail = 'info@nexastacktechnologies.com';
+const secondaryEmail = 'info.nexastacktechnologies@gmail.com';
 const whatsappPrefilledMessage = `Hello ${legalName}, I would like to discuss a web development project.`;
 
 export const company = deepFreeze({
@@ -58,10 +60,12 @@ export const company = deepFreeze({
     chatHref: getWhatsAppLink(whatsappPrefilledMessage),
   },
 
-  // Placeholder — replace with hello@<domain> once registered (CLAUDE.md 22.6).
+  // Public contact details only; these do not configure outbound sending identities.
   email: {
-    general: 'nexastack@mail.com',
-    href: 'mailto:nexastack@mail.com',
+    general: primaryEmail,
+    href: `mailto:${primaryEmail}`,
+    secondary: secondaryEmail,
+    secondaryHref: `mailto:${secondaryEmail}`,
   },
 
   hours: {

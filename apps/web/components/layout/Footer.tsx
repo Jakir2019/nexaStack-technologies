@@ -72,7 +72,7 @@ export function Footer() {
             </ul>
           </nav>
 
-          <div>
+          <div className="min-w-0">
             <h3 className={HEADING_CLASSES}>Contact</h3>
             <address className="mt-4 space-y-3 text-body text-secondary not-italic">
               <p>{company.address.full}</p>
@@ -82,8 +82,23 @@ export function Footer() {
                 </a>
               </p>
               <p>
-                <a href={company.email.href} className={LIST_LINK_CLASSES}>
+                <span className="block text-label font-semibold text-primary">Business Email</span>
+                <a
+                  href={company.email.href}
+                  aria-label={`Business Email: ${company.email.general}`}
+                  className="block min-h-11 content-center rounded-field text-label font-semibold wrap-anywhere text-primary-blue underline-offset-4 focus-ring hover:text-primary-blue-hover hover:underline"
+                >
                   {company.email.general}
+                </a>
+              </p>
+              <p>
+                <span className="block text-label">Alternative Email</span>
+                <a
+                  href={company.email.secondaryHref}
+                  aria-label={`Alternative Email: ${company.email.secondary}`}
+                  className="block min-h-11 content-center rounded-field text-label wrap-anywhere text-secondary underline-offset-4 focus-ring hover:text-primary-blue-hover hover:underline"
+                >
+                  {company.email.secondary}
                 </a>
               </p>
               <p>{company.hours.display}</p>
