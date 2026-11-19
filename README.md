@@ -45,7 +45,7 @@ These public contact addresses are maintained in `company.email`. The domain add
 | Marketing website      | Implemented           | Homepage, about, services, solutions, technologies, process, FAQ, contact, quotation, testimonials, and legal pages. Most content comes from TypeScript configuration, not a CMS.                                                       |
 | Services               | Implemented           | Six listings/details: business websites; MERN/Next.js applications; admin dashboards; backend/APIs; maintenance/bug fixing; performance, SEO and accessibility audits.                                                                  |
 | Solutions              | Implemented           | Five use cases: recruitment/job portals, shipping/logistics, business management, e-commerce, startup MVPs. These describe offered work, not five deployed products.                                                                    |
-| Portfolio/case studies | Partially implemented | The portfolio index renders projects but is explicitly unfinished, lacks filters, and is noindex. CareerBridge has a case study, is marked in development, and has an empty screenshot array. Its external deployment was not verified. |
+| Portfolio/case studies | Implemented | CareerBridge, LiveTasker and NextCart appear on the homepage and portfolio index, with detailed case studies. Development and verification limits are disclosed; no production-readiness claim is implied. |
 | Testimonials           | Partially implemented | Approved-entry rendering and service filtering exist. Current entries are fictional demo feedback with generated portraits, disclosed as demos; they are not client endorsements.                                                       |
 | Contact/consultation   | Implemented           | Validated form saves an enquiry before acknowledging receipt. Phone, email, WhatsApp and consultation calls to action provide contact channels. No appointment scheduler. Email notifications are deferred.                             |
 | Quotation wizard       | Implemented           | Five steps: client information, project information, requirements, budget/timeline, review/submit. Step validation, editable review, consent, tab-session draft recovery, and persisted NXQ reference. No automatic pricing/invoicing.  |
@@ -340,7 +340,7 @@ Route-group directory names in parentheses are not URL segments. Unknown detail 
 | `/about`                                   | Founder, values and positioning                                                                                 |
 | `/services`, `/services/[slug]`            | Index/details from [services](apps/web/config/services.ts) and [details](apps/web/config/service-details.ts)    |
 | `/solutions`, `/solutions/[slug]`          | Index/details from [solutions](apps/web/config/solutions.ts) and [details](apps/web/config/solution-details.ts) |
-| `/portfolio`, `/portfolio/[slug]`          | Unfinished index and configured case studies; currently `/portfolio/careerbridge`                               |
+| `/portfolio`, `/portfolio/[slug]` | CareerBridge (`careerbridge`), LiveTasker (`livetasker`), NextCart (`nextcart`) |
 | `/technologies`, `/process`                | Technology categories and delivery process                                                                      |
 | `/blog`, `/blog/[slug]`                    | Published articles; list supports `q`, `category`, `tag`, `page`                                                |
 | `/faq`                                     | Searchable/category-filtered questions                                                                          |
@@ -370,6 +370,18 @@ Solution slugs: `recruitment-job-portals`, `shipping-logistics-systems`, `busine
 | `/admin/activity`                                   | `audit:view`                                            |
 
 Developer tools: `/dev/tokens`, `/dev/blog-preview`, `/dev/blog-post-preview`, `/dev/testimonials-preview`. [The dev layout](apps/web/app/dev/layout.tsx) returns 404 in production. There are no implemented `/admin/projects` or `/admin/settings` pages.
+
+### Portfolio content maintenance
+
+The portfolio contains **CareerBridge**, **LiveTasker** and **NextCart** at:
+
+- `/portfolio/careerbridge`
+- `/portfolio/livetasker`
+- `/portfolio/nextcart`
+
+Edit card data in [projects.ts](apps/web/config/projects.ts) and long-form content in [case-studies.ts](apps/web/config/case-studies.ts). Slugs are stable IDs. The homepage, dynamic case-study route and sitemap consume this configuration automatically; there is no database migration or portfolio CMS. All three remain visible by default; no filter UI is needed for this small collection.
+
+LiveTasker uses an authentic, locally stored task-board screenshot. NextCart uses a labelled illustration because its repository has no application screenshots. Add a verified local image and meaningful `imageAlt` to enable card imagery. Live demo buttons for the new projects are omitted until the README deployment URLs can be checked. GitHub links remain available. See [research evidence and limitations](docs/portfolio-research.md) before changing feature, security or production-status claims.
 
 ## API reference
 
@@ -590,7 +602,7 @@ API HTTP logs omit sensitive bodies/cookies; ordinary account queries exclude pa
 
 Next metadata includes canonical paths, Open Graph/Twitter cards and shared helpers. Detail metadata derives from content. JSON-LD includes organization, service, article and breadcrumb information where applicable. Social cards use existing assets/blog-cover URLs; no OG-image generation endpoint is implemented. Search Console verification emits a meta tag only when configured.
 
-[Sitemap](apps/web/app/sitemap.ts) combines the route registry, services/solutions, project/case-study intersections and published posts. It runs per request; static entries remain if blog reads fail. The unfinished portfolio index is noindex/excluded, while its actual case study is included. [Robots](apps/web/app/robots.ts) disallows `/admin`, `/api/` and `/dev`; robots rules are not access control.
+[Sitemap](apps/web/app/sitemap.ts) combines the route registry, services/solutions, project/case-study intersections and published posts. It runs per request; static entries remain if blog reads fail. The portfolio index and all three case studies are indexable and included. [Robots](apps/web/app/robots.ts) disallows `/admin`, `/api/` and `/dev`; robots rules are not access control.
 
 Components include semantic landmarks, labelled forms/linked errors, keyboard-operable Radix controls, visible focus styles, skip-link/route focus handling, responsive navigation, image alternatives and global reduced-motion rules. Themes use early initialization to reduce flashing. **WCAG 2.1 AA is a target, not certified compliance**; axe cannot establish screen-reader usability or every visual/context issue.
 
@@ -679,7 +691,7 @@ Priorities grounded in current gaps:
 1. **Launch:** settle domain and implement/test cookie topology; choose/connect transactional email for resets and submission notifications/confirmations. Align copy that implies email confirmation with actual delivery.
 2. **Operations:** configure protected automated DB/media backups, prove restores, set monitoring/retention policies, and verify staging providers/HTTPS/session behavior.
 3. **Scaling/abuse:** replace process-local rate limits before multi-instance reliance; review public upload/body limits, orphan cleanup and scanning. Public blog filtering currently loads all published summaries.
-4. **Content:** finish portfolio/screenshots, replace disclosed demo testimonials with permissioned feedback, finalize remaining legal/business details and brand variants. The official public contact emails are documented above; other open business decisions remain separate.
+4. **Content:** supply remaining authentic portfolio screenshots and verify demo availability, replace disclosed demo testimonials with permissioned feedback, finalize remaining legal/business details and brand variants. The official public contact emails are documented above; other open business decisions remain separate.
 5. **Optional expansion:** settings and static marketing CMS modules remain unbuilt; implement after scope decisions. Richer article media editing is also absent.
 
 Older notes that quotation backend is unresolved are stale: submission, references, attachments and admin management exist. Conversely, instruction tables mentioning TanStack Query, Swagger, Sentry, automated backups or email do not establish those integrations. Inspection cannot prove live deployment, legal suitability, accessibility certification or production performance.

@@ -3,16 +3,15 @@ import type { Metadata } from 'next';
 import { withSocialMetadata } from '@/lib/metadata';
 import { ProjectGrid } from '@/components/sections/ProjectGrid';
 import { projects } from '@/config/projects';
-
-// PLACEHOLDER: project list is real (from config/projects.ts) but the page chrome around it is
-// not designed yet, and there is no filter UI — that is separate, dedicated work. Once designed,
-// this will need a canonical URL and JSON-LD (root CLAUDE.md section 13).
+import { env } from '@/lib/env';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { Button } from '@/components/ui/Button';
 
 export const metadata: Metadata = withSocialMetadata(
   {
     title: 'Portfolio',
     description: 'Selected website and web application projects by NexaStack Technologies.',
-    robots: { index: false, follow: false },
+    alternates: { canonical: '/portfolio' },
   },
   '/portfolio',
 );
@@ -20,14 +19,45 @@ export const metadata: Metadata = withSocialMetadata(
 export default function PortfolioPage() {
   return (
     <div className="page-container section-y">
-      <h1 className="text-page font-semibold tracking-tight">Portfolio</h1>
+      <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Portfolio' }]} />
+      <h1 className="mt-8 text-page font-semibold tracking-tight">Portfolio</h1>
       <p className="mt-4 max-w-prose text-body-lg text-secondary">
-        Selected projects built by NexaStack Technologies.
+        Explore recruitment, team collaboration and commerce applications. Each case study explains
+        the implementation, architecture and current development status.
       </p>
 
       <div className="mt-10">
-        <ProjectGrid projects={projects} />
+        <ProjectGrid projects={projects} headingLevel="h2" />
       </div>
+      <div className="mt-12 border-t border-default pt-10">
+        <h2 className="text-section font-semibold text-primary">Have a project in mind?</h2>
+        <p className="mt-4 text-body-lg text-secondary">
+          Tell us about the application your business needs.
+        </p>
+        <Button href="/quotation" className="mt-6">
+          Request a Quote
+        </Button>
+      </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'CollectionPage',
+            name: 'Portfolio',
+            url: `${env.NEXT_PUBLIC_SITE_URL}/portfolio`,
+            mainEntity: {
+              '@type': 'ItemList',
+              itemListElement: projects.map((project, index) => ({
+                '@type': 'ListItem',
+                position: index + 1,
+                name: project.title,
+                url: `${env.NEXT_PUBLIC_SITE_URL}${project.caseStudyHref}`,
+              })),
+            },
+          }),
+        }}
+      />
     </div>
   );
 }

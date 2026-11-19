@@ -114,13 +114,7 @@ test.describe('metadata on every public page', () => {
     for (const path of paths) {
       await page.goto(path, { waitUntil: 'domcontentloaded' });
       const facts = await collect(page);
-      // `/portfolio` is a documented PLACEHOLDER (its page source says it "will need a canonical URL, share image and
-      // JSON-LD" once designed): it is noindex and absent from the sitemap. Its canonical and heading-order gaps are
-      // known deferred work, so they are exempted here BY NAME, in the open, and listed in the report. Every other
-      // check still applies to it, and every other page gets every check.
-      const isPlaceholder = path === '/portfolio';
       const fail = (message: string) => {
-        if (isPlaceholder && /no canonical link|heading level skipped/.test(message)) return;
         problems.push(`${path}: ${message}`);
       };
 
@@ -180,10 +174,7 @@ test.describe('metadata on every public page', () => {
         fail('blog post without Article JSON-LD');
 
       const noindex = /noindex/i.test(facts.robots ?? '');
-      if (path === '/portfolio') {
-        if (!noindex)
-          fail('the placeholder portfolio index should be noindex (it is not in the sitemap)');
-      } else if (noindex) fail(`unexpectedly noindex: ${facts.robots}`);
+      if (noindex) fail(`unexpectedly noindex: ${facts.robots}`);
     }
     expect(problems, problems.join('\n')).toEqual([]);
   });

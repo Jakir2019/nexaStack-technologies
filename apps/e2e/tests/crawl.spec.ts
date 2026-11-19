@@ -52,11 +52,9 @@ test.describe('routes', () => {
 });
 
 test.describe('sitemap and robots', () => {
-  test('the sitemap lists every static page but the noindex portfolio index, on the configured origin', async ({
-    request,
-  }) => {
+  test('the sitemap lists every static page on the configured origin', async ({ request }) => {
     const paths = await sitemapPaths(request);
-    for (const route of STATIC_ROUTES.filter((route) => route !== '/portfolio')) {
+    for (const route of STATIC_ROUTES) {
       expect(paths, route).toContain(route);
     }
     const xml = await (await request.get('/sitemap.xml')).text();

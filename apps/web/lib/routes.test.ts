@@ -38,9 +38,7 @@ function hasPage(urlPath: string): boolean {
 }
 
 /** Marketing pages deliberately absent from the sitemap. */
-const NOT_IN_SITEMAP = new Map([
-  ['/portfolio', 'a placeholder index whose own metadata sets robots: { index: false }'],
-]);
+const NOT_IN_SITEMAP = new Map<string, string>();
 
 describe('PUBLIC_ROUTES (the sitemap source)', () => {
   it('lists each path once, as an absolute path with a valid priority', () => {

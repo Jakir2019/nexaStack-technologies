@@ -6,17 +6,19 @@
  * entries — a fake project card is fabricated social proof, same as a fake testimonial.
  */
 
-export type ProjectStatus = 'live' | 'in-development';
+export type ProjectStatus = 'live' | 'in-development' | 'demonstration';
 
 export interface Project {
   slug: string;
   title: string;
   summary: string;
-  /** Path to a real screenshot. Not wired up yet — `ProjectCard` renders a mockup frame until one exists. */
-  image: string;
+  /** Local screenshot; supply imageAlt only after the asset has been verified. */
+  image?: string;
+  imageAlt?: string;
+  category?: string;
   tags: readonly string[];
   status: ProjectStatus;
-  liveUrl: string;
+  liveUrl?: string;
   repoUrl?: string;
   caseStudyHref: `/${string}`;
   /** Shown in the homepage section. A future project can be added here without appearing there. */
@@ -46,6 +48,50 @@ export const projects: readonly Project[] = [
     liveUrl: 'https://careerbridge-client.vercel.app',
     repoUrl: 'https://github.com/Jakirhossain80/careerbridge',
     caseStudyHref: '/portfolio/careerbridge',
+    featured: true,
+  },
+  {
+    slug: 'livetasker',
+    title: 'LiveTasker',
+    summary:
+      'A team collaboration application with shared workspaces, drag-and-drop task boards, member management, and real-time updates.',
+    category: 'Team collaboration',
+    image: '/images/portfolio/livetasker-task-board.png',
+    imageAlt: 'LiveTasker task board with Todo, In Progress, Review and Done columns',
+    tags: [
+      'React',
+      'TypeScript',
+      'Tailwind CSS',
+      'Express',
+      'MongoDB',
+      'Socket.IO',
+      'TanStack Query',
+      'Zustand',
+    ],
+    status: 'demonstration',
+    repoUrl: 'https://github.com/Jakirhossain80/live-tasker',
+    caseStudyHref: '/portfolio/livetasker',
+    featured: true,
+  },
+  {
+    slug: 'nextcart',
+    title: 'NextCart',
+    summary:
+      'A Next.js commerce application connecting a Sanity product catalog with shopping filters, a persistent cart and wishlist, and Stripe checkout integration.',
+    category: 'E-commerce',
+    tags: [
+      'Next.js',
+      'React',
+      'TypeScript',
+      'Tailwind CSS',
+      'Sanity',
+      'Clerk',
+      'Stripe',
+      'Zustand',
+    ],
+    status: 'demonstration',
+    repoUrl: 'https://github.com/Jakirhossain80/next-cart',
+    caseStudyHref: '/portfolio/nextcart',
     featured: true,
   },
 ] as const;

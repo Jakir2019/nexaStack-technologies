@@ -18,9 +18,7 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
   { path: '/about', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/services', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/solutions', changeFrequency: 'monthly', priority: 0.7 },
-  // /portfolio itself is a placeholder (its own metadata sets `robots: { index: false }`) — the
-  // sitemap must not advertise a page for indexing that tells crawlers not to index it. Its real,
-  // fully-built case-study pages are still appended below from `caseStudies`/`projects`.
+  { path: '/portfolio', changeFrequency: 'monthly', priority: 0.7 },
   { path: '/technologies', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/process', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/blog', changeFrequency: 'weekly', priority: 0.6 },

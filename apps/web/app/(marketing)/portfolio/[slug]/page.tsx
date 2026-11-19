@@ -7,6 +7,7 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { ScreenshotLightbox } from '@/components/ui/ScreenshotLightbox';
+import { ProjectGrid } from '@/components/sections/ProjectGrid';
 import { ServiceCard } from '@/components/sections/ServiceCard';
 import { caseStudies, getCaseStudyBySlug } from '@/config/case-studies';
 import { company } from '@/config/company';
@@ -40,9 +41,7 @@ export function generateStaticParams() {
 
 export const dynamicParams = false;
 
-export async function generateMetadata({
-  params,
-}: ProjectCaseStudyPageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: ProjectCaseStudyPageProps): Promise<Metadata> {
   const { slug } = await params;
   const project = getProjectBySlug(slug);
   const caseStudy = getCaseStudyBySlug(slug);
@@ -60,7 +59,10 @@ function BulletList({ items }: { items: readonly string[] }) {
     <ul className="mt-4 flex flex-col gap-3">
       {items.map((item) => (
         <li key={item} className="flex gap-3">
-          <span aria-hidden="true" className="mt-2.5 size-1.5 shrink-0 rounded-full bg-primary-blue" />
+          <span
+            aria-hidden="true"
+            className="mt-2.5 size-1.5 shrink-0 rounded-full bg-primary-blue"
+          />
           <p className="text-body-lg text-secondary">{item}</p>
         </li>
       ))}
@@ -115,15 +117,31 @@ export default async function ProjectCaseStudyPage({ params }: ProjectCaseStudyP
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-page font-semibold tracking-tight text-primary">{project.title}</h1>
           {inDevelopment && <Badge>In active development</Badge>}
+          {project.status === 'demonstration' && <Badge>Demonstration</Badge>}
         </div>
         <p className="mt-4 text-body-lg text-secondary">{project.summary}</p>
+        {caseStudy.statusNote && (
+          <p className="mt-4 text-body-lg text-secondary">{caseStudy.overview}</p>
+        )}
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Button href={project.liveUrl} variant="secondary" target="_blank" rel="noopener noreferrer">
-            Live Website <span className="sr-only">{NEW_TAB_NOTICE}</span>
-          </Button>
+          {project.liveUrl && (
+            <Button
+              href={project.liveUrl}
+              variant="secondary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Live Website <span className="sr-only">{NEW_TAB_NOTICE}</span>
+            </Button>
+          )}
           {project.repoUrl && (
-            <Button href={project.repoUrl} variant="secondary" target="_blank" rel="noopener noreferrer">
+            <Button
+              href={project.repoUrl}
+              variant="secondary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               View on GitHub <span className="sr-only">{NEW_TAB_NOTICE}</span>
             </Button>
           )}
@@ -155,7 +173,9 @@ export default async function ProjectCaseStudyPage({ params }: ProjectCaseStudyP
 
       {/* 5. Proposed solution */}
       <ScrollReveal className={SECTION_CLASS}>
-        <h2 className={H2_CLASS}>Proposed solution</h2>
+        <h2 className={H2_CLASS}>
+          {caseStudy.statusNote ? 'Solution overview' : 'Proposed solution'}
+        </h2>
         <p className="mt-4 text-body-lg text-secondary">{caseStudy.proposedSolution}</p>
       </ScrollReveal>
 
@@ -198,11 +218,18 @@ export default async function ProjectCaseStudyPage({ params }: ProjectCaseStudyP
         <p className="mt-4 text-body-lg text-secondary">{caseStudy.systemArchitecture}</p>
       </ScrollReveal>
 
-      {/* 10. Development process */}
-      <ScrollReveal className={SECTION_CLASS}>
-        <h2 className={H2_CLASS}>Development process</h2>
-        <p className="mt-4 text-body-lg text-secondary">{caseStudy.developmentProcess}</p>
-      </ScrollReveal>
+      {caseStudy.developmentProcess && (
+        <ScrollReveal className={SECTION_CLASS}>
+          <h2 className={H2_CLASS}>Development process</h2>
+          <p className="mt-4 text-body-lg text-secondary">{caseStudy.developmentProcess}</p>
+        </ScrollReveal>
+      )}
+      {caseStudy.workflows && (
+        <ScrollReveal className={SECTION_CLASS}>
+          <h2 className={H2_CLASS}>Application workflow</h2>
+          <BulletList items={caseStudy.workflows} />
+        </ScrollReveal>
+      )}
 
       {/* 11 & 12. Technical challenges and their solutions, paired side by side on desktop */}
       <ScrollReveal className="mt-12 max-w-4xl">
@@ -214,13 +241,13 @@ export default async function ProjectCaseStudyPage({ params }: ProjectCaseStudyP
               className="grid grid-cols-1 gap-4 rounded-card border border-default bg-surface p-6 shadow-card md:grid-cols-2"
             >
               <div>
-                <p className="text-label font-semibold uppercase tracking-wide text-secondary">
+                <p className="text-label font-semibold tracking-wide text-secondary uppercase">
                   Challenge
                 </p>
                 <p className="mt-2 text-body-lg text-primary">{challenge}</p>
               </div>
               <div>
-                <p className="text-label font-semibold uppercase tracking-wide text-secondary">
+                <p className="text-label font-semibold tracking-wide text-secondary uppercase">
                   Solution
                 </p>
                 <p className="mt-2 text-body-lg text-secondary">
@@ -247,11 +274,18 @@ export default async function ProjectCaseStudyPage({ params }: ProjectCaseStudyP
           </div>
         ) : (
           <p className="mt-4 max-w-prose text-body-lg text-secondary">
-            Screenshots coming soon — this project is still in active development and real
-            screenshots haven&rsquo;t been captured yet.
+            {caseStudy.screenshotNote ??
+              'Screenshots coming soon — this project is still in active development and real screenshots haven’t been captured yet.'}
           </p>
         )}
       </ScrollReveal>
+
+      {caseStudy.statusNote && (
+        <ScrollReveal className={SECTION_CLASS}>
+          <h2 className={H2_CLASS}>Development status</h2>
+          <p className="mt-4 text-body-lg text-secondary">{caseStudy.statusNote}</p>
+        </ScrollReveal>
+      )}
 
       {/* 15. Project results */}
       <ScrollReveal className={SECTION_CLASS}>
@@ -268,12 +302,30 @@ export default async function ProjectCaseStudyPage({ params }: ProjectCaseStudyP
             in-progress work rather than a finished product.
           </p>
         )}
+        {!project.liveUrl && (
+          <p className="mt-4 text-body text-secondary">
+            Live demo availability has not been verified. Explore the source and documentation on
+            GitHub.
+          </p>
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button href={project.liveUrl} variant="primary" target="_blank" rel="noopener noreferrer">
-            Live Website <span className="sr-only">{NEW_TAB_NOTICE}</span>
-          </Button>
+          {project.liveUrl && (
+            <Button
+              href={project.liveUrl}
+              variant="primary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Live Website <span className="sr-only">{NEW_TAB_NOTICE}</span>
+            </Button>
+          )}
           {project.repoUrl ? (
-            <Button href={project.repoUrl} variant="secondary" target="_blank" rel="noopener noreferrer">
+            <Button
+              href={project.repoUrl}
+              variant="secondary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               View on GitHub <span className="sr-only">{NEW_TAB_NOTICE}</span>
             </Button>
           ) : (
@@ -296,13 +348,23 @@ export default async function ProjectCaseStudyPage({ params }: ProjectCaseStudyP
         </ScrollReveal>
       )}
 
+      <ScrollReveal className="mt-12">
+        <h2 className={H2_CLASS}>Explore more projects</h2>
+        <div className="mt-6">
+          <ProjectGrid projects={projects.filter((item) => item.slug !== project.slug)} />
+        </div>
+        <Button href="/portfolio" variant="secondary" className="mt-6">
+          All portfolio projects
+        </Button>
+      </ScrollReveal>
+
       {/* 18. Project-enquiry CTA */}
       <ScrollReveal className="mt-12 max-w-prose border-t border-default pt-10">
         <h2 className={H2_CLASS}>Interested in something similar?</h2>
         <p className="mt-4 text-body-lg text-secondary">
           Tell {company.legalName} what you&rsquo;re building and get a project-specific quote
-          scoped around it — whether that&rsquo;s a job portal, another multi-role application,
-          or something else entirely.
+          scoped around it — whether that&rsquo;s a job portal, another multi-role application, or
+          something else entirely.
         </p>
         <Button href="/quotation" className="mt-6">
           Request a Quote
