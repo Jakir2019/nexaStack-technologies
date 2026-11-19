@@ -40,7 +40,7 @@ export function ScreenshotLightbox({ screenshots }: ScreenshotLightboxProps) {
                 alt={screenshot.alt}
                 fill
                 sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                className="object-cover transition duration-150 ease-out group-hover:scale-[1.02]"
+                className="object-contain transition duration-150 ease-out group-hover:scale-[1.02]"
               />
             </button>
           </li>
