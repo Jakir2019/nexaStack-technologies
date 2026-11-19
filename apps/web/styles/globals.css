@@ -421,3 +421,28 @@
     scroll-behavior: auto !important;
   }
 }
+/* A keyboard-scrollable region keeps wide article tables inside the reading column. */
+.article-prose .article-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  margin-block: 1.5rem;
+}
+.article-prose .article-table-scroll:focus-visible {
+  outline: 2px solid var(--nx-primary-blue);
+  outline-offset: 2px;
+}
+.article-prose table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.article-prose th,
+.article-prose td {
+  padding: 0.75rem;
+  border: 1px solid var(--nx-border);
+  text-align: left;
+  vertical-align: top;
+  min-width: 10rem;
+}
+.article-prose th {
+  font-weight: 600;
+}

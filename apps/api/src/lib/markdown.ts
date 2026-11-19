@@ -20,7 +20,8 @@ import { slugify } from './slug.js';
  * Supported: `##` and `###` headings, paragraphs, `-`/`*` bullet lists, `1.` numbered lists,
  * `>` blockquotes, ``` fenced code blocks, and inline **bold**, *italic*, `code`, [links](url).
  * Only elements `.article-prose` in styles/globals.css actually styles are emitted.
- * Not supported (rendered as plain text): raw HTML, images, tables, nested lists, `#` and `####`
+ * Pipe tables support inline formatting and escaped pipes; alignment markers are accepted but
+ * presentation stays left-aligned. Not supported: raw HTML, images, nested lists, `#` and `####`
  * headings. `#` is not a heading because the page template already owns the one `<h1>`.
  */
 
@@ -118,6 +119,27 @@ const BULLET = /^[-*]\s+(.+)$/;
 const NUMBERED = /^\d{1,3}[.)]\s+(.+)$/;
 const QUOTE = /^>\s?(.*)$/;
 
+/** Pipe tables with optional outer pipes; escaped pipes remain literal cell text. */
+function tableCells(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/(?<!\\)\|$/, '')
+    .split(/(?<!\\)\|/)
+    .map((cell) => cell.trim().replace(/\\\|/g, '|'));
+}
+
+function tableStart(lines: string[], index: number): boolean {
+  const header = lines[index] ?? '';
+  const separator = lines[index + 1] ?? '';
+  const cells = tableCells(separator);
+  return (
+    header.includes('|') &&
+    cells.length === tableCells(header).length &&
+    cells.every((cell) => /^:?-{3,}:?$/.test(cell))
+  );
+}
+
 export function renderMarkdown(source: string): RenderedMarkdown {
   const lines = source.replace(/\r\n?/g, '\n').split('\n');
   const html: string[] = [];
@@ -152,6 +174,27 @@ export function renderMarkdown(source: string): RenderedMarkdown {
       index += 1; // the closing fence
       const cls = language ? ` class="language-${language}"` : '';
       html.push(`<pre><code${cls}>${escapeHtml(code.join('\n'))}</code></pre>`);
+      continue;
+    }
+
+    if (tableStart(lines, index)) {
+      const headers = tableCells(line);
+      const rows: string[] = [];
+      index += 2;
+      while (
+        index < lines.length &&
+        (lines[index] ?? '').includes('|') &&
+        (lines[index] ?? '').trim()
+      ) {
+        const cells = tableCells(lines[index] ?? '');
+        rows.push(
+          `<tr>${headers.map((_, column) => `<td>${renderInline(cells[column] ?? '')}</td>`).join('')}</tr>`,
+        );
+        index += 1;
+      }
+      html.push(
+        `<div class="article-table-scroll" role="region" tabindex="0" aria-label="Comparison table"><table><thead><tr>${headers.map((cell) => `<th scope="col">${renderInline(cell)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`,
+      );
       continue;
     }
 
@@ -201,6 +244,7 @@ export function renderMarkdown(source: string): RenderedMarkdown {
       const current = lines[index] ?? '';
       if (
         current.trim() === '' ||
+        tableStart(lines, index) ||
         FENCE.test(current.trim()) ||
         HEADING.test(current) ||
         BULLET.test(current) ||

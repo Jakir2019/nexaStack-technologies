@@ -1,0 +1,42 @@
+[
+  {
+    "slug": "mern-stack-vs-nextjs-2026",
+    "title": "MERN Stack vs Next.js: Which Technology Should You Choose in 2026?",
+    "category": "Web Development",
+    "tags": ["React", "MERN Stack", "Next.js", "Full-Stack Development"],
+    "excerpt": "Compare MERN and Next.js architectures, rendering, APIs, deployment, and maintenance to choose an approach that fits your business.",
+    "coverImage": "/images/blog/mern-stack-vs-nextjs-2026.svg",
+    "coverImageAlt": "Illustration of a web interface connected to an API and database.",
+    "featured": false
+  },
+  {
+    "slug": "why-businesses-need-professional-websites-2026",
+    "title": "Why Every Business Needs a Professional Website in 2026",
+    "category": "Business Websites",
+    "tags": ["Business Website", "SEO", "Responsive Design", "Digital Presence"],
+    "excerpt": "Learn how a professional website supports credibility, enquiries, accessibility, and long-term growth for local and international businesses.",
+    "coverImage": "/images/blog/why-businesses-need-professional-websites-2026.svg",
+    "coverImageAlt": "Responsive business website illustrated on desktop, tablet, and mobile devices.",
+    "featured": false
+  },
+  {
+    "slug": "successful-ecommerce-website-bangladesh",
+    "title": "How to Build a Successful E-commerce Website in Bangladesh",
+    "category": "E-commerce Development",
+    "tags": ["E-commerce", "Bangladesh", "Online Store", "Payment Integration"],
+    "excerpt": "Plan an online store for Bangladesh with clear product data, reliable checkout, payment verification, delivery workflows, and maintainable operations.",
+    "coverImage": "/images/blog/successful-ecommerce-website-bangladesh.svg",
+    "coverImageAlt": "Illustrated online store with product cards and an order summary.",
+    "featured": false
+  },
+  {
+    "slug": "custom-web-application-vs-ready-made-software",
+    "title": "Custom Web Application vs Ready-Made Software: Which Is Better for Your Business?",
+    "category": "Business Solutions",
+    "tags": ["Custom Software", "SaaS", "Business Applications", "Software Development"],
+    "excerpt": "Compare custom applications and ready-made software across costs, integrations, ownership, security, and maintenance with a practical decision checklist.",
+    "coverImage": "/images/blog/custom-web-application-vs-ready-made-software.svg",
+    "coverImageAlt": "Illustrated business dashboard comparing configurable and custom workflows.",
+    "featured": false
+  }
+]

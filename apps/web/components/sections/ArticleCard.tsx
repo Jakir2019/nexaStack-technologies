@@ -12,7 +12,11 @@ export interface ArticleCardProps {
 function formatPublishedDate(isoDate: string) {
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return isoDate;
-  return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(date);
 }
 
 /**
@@ -47,18 +51,30 @@ export function ArticleCard({ post }: ArticleCardProps) {
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 p-6">
         <div className="flex flex-wrap items-center gap-3 text-label text-secondary">
-          <span className="font-mono uppercase tracking-wide text-primary-blue">{post.category}</span>
+          <span className="font-mono tracking-wide text-primary-blue uppercase">
+            {post.category}
+          </span>
           <span aria-hidden="true">&middot;</span>
           <time dateTime={post.publishedAt}>{formatPublishedDate(post.publishedAt)}</time>
         </div>
 
         <h2 className="text-card font-semibold text-primary">
-          <Link href={`/blog/${post.slug}`} className={cn('rounded-field focus-ring', 'hover:text-primary-blue-hover')}>
+          <Link
+            href={`/blog/${post.slug}`}
+            className={cn('rounded-field focus-ring', 'hover:text-primary-blue-hover')}
+          >
             {post.title}
           </Link>
         </h2>
 
         <p className="flex-1 text-body text-secondary">{post.excerpt}</p>
+        <Link
+          href={`/blog/${post.slug}`}
+          className="inline-flex min-h-11 items-center rounded-field text-primary-blue focus-ring hover:text-primary-blue-hover"
+          aria-label={`Read article: ${post.title}`}
+        >
+          Read Article <span aria-hidden="true">&nbsp;→</span>
+        </Link>
 
         {post.tags.length > 0 && (
           <ul className="mt-1 flex flex-wrap gap-2">

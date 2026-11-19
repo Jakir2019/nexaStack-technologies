@@ -43,7 +43,7 @@ export function ArticleView({ post, relatedPosts, canonicalUrl }: ArticleViewPro
         </div>
 
         <div className="mt-12 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_16rem]">
-          <div className="order-2 max-w-prose lg:order-1">
+          <div className="order-2 max-w-prose min-w-0 lg:order-1">
             <ArticleBody contentHtml={post.contentHtml} />
 
             <div className="mt-10 max-w-prose border-t border-default pt-6">

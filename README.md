@@ -1,5 +1,13 @@
 # NexaStack Technologies
 
+## Initial blog articles
+
+Four complete Markdown articles, original SVG covers, and a validated draft importer are provided
+in [content/blog](content/blog/README.md): MERN Stack vs Next.js, professional business websites,
+e-commerce in Bangladesh, and custom versus ready-made software. MongoDB remains the public
+content source. Follow the linked development import and administrator publishing instructions;
+adding these files alone does not publish articles. The existing excerpt supplies SEO descriptions.
+
 **We Build Better Websites.**
 
 NexaStack Technologies is a founder-led web development studio based in Dhaka, Bangladesh, founded by Md. Jakir Hossain. This repository contains its public business website and private administrator interface. Prospective clients in Bangladesh and abroad can explore services, read articles, contact the studio, and request a quotation. Administrators manage enquiries, quotation requests, blog content, media, and accounts.

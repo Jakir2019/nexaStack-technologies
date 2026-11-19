@@ -360,7 +360,8 @@ export function BlogPostForm({ categories, post, canPublish, canDelete }: BlogPo
             hint={
               <>
                 Use <code className="font-mono">##</code> and <code className="font-mono">###</code>{' '}
-                for headings. Raw HTML and images are not supported and appear as plain text.
+                for headings. Pipe comparison tables are supported. Raw HTML and images are not
+                supported and appear as plain text.
               </>
             }
           >

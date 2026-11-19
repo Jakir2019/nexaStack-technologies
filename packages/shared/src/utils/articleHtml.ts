@@ -44,6 +44,18 @@ const TAG_ATTRIBUTES: Readonly<Record<string, Readonly<Record<string, RegExp>>>>
   a: { href: /[\s\S]*/, rel: /^noopener noreferrer$/ },
   strong: {},
   em: {},
+  div: {
+    class: /^article-table-scroll$/,
+    role: /^region$/,
+    tabindex: /^0$/,
+    'aria-label': /^Comparison table$/,
+  },
+  table: {},
+  thead: {},
+  tbody: {},
+  tr: {},
+  th: { scope: /^col$/ },
+  td: {},
 };
 
 /** `<name attr="value" …>` or `</name>`. Values are double-quoted and contain no `"`, `<` or `>`. */
