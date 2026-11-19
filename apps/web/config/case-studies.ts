@@ -113,7 +113,12 @@ export const caseStudies: readonly CaseStudy[] = [
     ],
     securityApproach:
       "Role-based authorization is enforced through server-side middleware rather than hidden UI alone — the same server-side-enforcement discipline NexaStack's own API follows (see root CLAUDE.md section 11.3) — governing what each of the four roles (job seeker, employer, administrator, super-administrator) can access. Firebase Authentication handles identity and credentials; the Express API's own JWT, stored in a cookie rather than localStorage, governs session authorization. Enforcement is not yet complete across every route, however — a known, open issue (see Technical challenges above), not a finished security posture. [add real detail on password handling and input validation actually implemented, once confirmed]",
-    screenshots: [],
+    screenshots: [
+      {
+        src: '/images/portfolio/careerbridge.png',
+        alt: 'CareerBridge job portal homepage featuring job search and career matching.',
+      },
+    ],
     projectResults:
       'CareerBridge is a working end-to-end job portal today — job listings, applications and role-gated dashboards function for all four roles — but it is not yet feature-complete or bug-free: the authentication/redirect and RBAC issues above are still open, which is why it is listed as in-development rather than live. [add real result — metric, outcome, or feedback if available once complete]',
     relatedServiceSlugs: ['mern-nextjs-applications', 'backend-and-apis', 'admin-dashboards'],
@@ -229,9 +234,12 @@ export const caseStudies: readonly CaseStudy[] = [
     ],
     securityApproach:
       'Clerk supplies identity and the Stripe webhook verifies its signature against the raw request body. Production hardening remains necessary: the reviewed checkout action accepts submitted product prices and customer metadata, and the route-protection middleware continues after caught errors. These code paths do not establish production-safe authorization or payment integrity.',
-    screenshots: [],
-    screenshotNote:
-      'No application screenshots were found in the reviewed repository. The portfolio uses a labelled project illustration instead; product artwork is not presented as an interface screenshot.',
+    screenshots: [
+      {
+        src: '/images/portfolio/nextcart.png',
+        alt: 'NextCart e-commerce homepage featuring promotional products and shopping categories.',
+      },
+    ],
     statusNote:
       'Demonstration project with implemented commerce integrations and unresolved production-hardening work. Live payment completion, webhook delivery, Sanity permissions and deployed availability were not verified. Order statuses are stored CMS values, not evidence of a carrier tracking integration.',
     projectResults:

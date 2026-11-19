@@ -50,3 +50,23 @@ test('new case studies disclose verification limits without placeholder claims',
     assert.doesNotMatch(JSON.stringify(study), /\[add |coming soon/i);
   }
 });
+
+test('CareerBridge and NextCart have valid card images and matching case-study screenshots', () => {
+  for (const project of projects.filter((item) =>
+    ['careerbridge', 'nextcart'].includes(item.slug),
+  )) {
+    assert.ok(project.image, `${project.slug} card image`);
+    assert.ok(project.imageAlt?.trim(), `${project.slug} card image alt text`);
+    const imagePath = path.join(import.meta.dirname, '../public', project.image);
+    assert.ok(existsSync(imagePath), `${project.slug} image does not exist: ${project.image}`);
+
+    const study = caseStudies.find((item) => item.slug === project.slug);
+    assert.ok(study, `${project.slug} case study`);
+    assert.ok(
+      study.screenshots.some(
+        (screenshot) => screenshot.src === project.image && screenshot.alt === project.imageAlt,
+      ),
+      `${project.slug} case study does not reuse its configured main image`,
+    );
+  }
+});

@@ -32,6 +32,7 @@ export const projects: readonly Project[] = [
     summary:
       'A full-stack job portal with separate candidate, employer and admin experiences — job listings, applications, and role-based dashboards.',
     image: '/images/portfolio/careerbridge.png',
+    imageAlt: 'CareerBridge job portal homepage featuring job search and career matching.',
     tags: [
       'Next.js',
       'React',
@@ -79,6 +80,9 @@ export const projects: readonly Project[] = [
     summary:
       'A Next.js commerce application connecting a Sanity product catalog with shopping filters, a persistent cart and wishlist, and Stripe checkout integration.',
     category: 'E-commerce',
+    image: '/images/portfolio/nextcart.png',
+    imageAlt:
+      'NextCart e-commerce homepage featuring promotional products and shopping categories.',
     tags: [
       'Next.js',
       'React',
