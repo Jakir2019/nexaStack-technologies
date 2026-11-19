@@ -56,6 +56,7 @@ export function ArticleCard({ post }: ArticleCardProps) {
           </span>
           <span aria-hidden="true">&middot;</span>
           <time dateTime={post.publishedAt}>{formatPublishedDate(post.publishedAt)}</time>
+          {post.readingTimeMinutes && <span>{post.readingTimeMinutes} min read</span>}
         </div>
 
         <h2 className="text-card font-semibold text-primary">

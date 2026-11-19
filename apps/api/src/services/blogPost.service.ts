@@ -1,5 +1,6 @@
 import {
   CONTENT_STATUS,
+  computeReadingTime,
   hasPermission,
   type BlogPostAdminDetail,
   type BlogPostAdminSummary,
@@ -200,6 +201,7 @@ export async function createPost(
       coverImageAlt: input.coverImageAlt,
       contentMarkdown: input.contentMarkdown,
       contentHtml: html,
+      readingTimeMinutes: computeReadingTime(html),
       tableOfContents,
       status: CONTENT_STATUS.DRAFT,
       featured: input.featured,
@@ -272,6 +274,7 @@ export async function updatePost(
   post.set('coverImageAlt', input.coverImageAlt);
   post.contentMarkdown = input.contentMarkdown;
   post.contentHtml = html;
+  post.readingTimeMinutes = computeReadingTime(html);
   post.set('tableOfContents', tableOfContents);
   post.featured = input.featured;
   post.set('updatedBy', context.adminId);

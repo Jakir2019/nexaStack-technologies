@@ -31,7 +31,7 @@ export default function MarketingLayout({ children }: Readonly<MarketingLayoutPr
       </main>
       <Footer />
       <WhatsAppWidget />
-      <SpeedInsights />
+      {process.env.VERCEL === '1' && <SpeedInsights />}
     </>
   );
 }

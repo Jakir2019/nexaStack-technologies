@@ -52,6 +52,7 @@ const blogPostSchema = new Schema(
     coverImageAlt: { type: String, trim: true, maxlength: 200 },
     contentMarkdown: { type: String, required: true, maxlength: 50_000 },
     contentHtml: { type: String, required: true },
+    readingTimeMinutes: { type: Number, min: 1 },
     tableOfContents: { type: [tocItemSchema], default: [] },
     status: { type: String, required: true, enum: CONTENT_STATUSES, default: CONTENT_STATUS.DRAFT },
     featured: { type: Boolean, required: true, default: false },

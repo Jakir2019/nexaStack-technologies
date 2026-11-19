@@ -1,5 +1,6 @@
 import { CONTENT_STATUS, SLUG_PATTERN, type BlogPostAdminDetail } from '@nexastack/shared';
 import { unstable_cache } from 'next/cache';
+import { computeReadingTime } from '@nexastack/shared';
 import { cache } from 'react';
 
 import { company } from '@/config/company';
@@ -35,6 +36,7 @@ import { connectToDatabase } from '@/lib/mongodb';
  */
 
 export interface BlogPost {
+  readingTimeMinutes?: number;
   slug: string;
   title: string;
   excerpt: string;
@@ -65,9 +67,10 @@ const UNCATEGORIZED = 'Uncategorized';
 
 /** Fields the listing needs. The body (`contentHtml`, `contentMarkdown`) is deliberately not
  * loaded for lists: it can be large and nothing on a list page renders it. */
-const SUMMARY_FIELDS = 'slug title excerpt category tags coverImage coverImageAlt publishedAt createdAt featured';
+const SUMMARY_FIELDS = 'slug title excerpt category tags coverImage coverImageAlt publishedAt createdAt featured readingTimeMinutes';
 
 interface SummaryRecord {
+  readingTimeMinutes?: number;
   slug: string;
   title: string;
   excerpt: string;
@@ -150,7 +153,7 @@ function buildPost(fields: {
 }
 
 function toBlogPost(record: SummaryRecord, categories: { id: string; name: string }[]): BlogPost {
-  return buildPost({
+  const post = buildPost({
     slug: record.slug,
     title: record.title,
     excerpt: record.excerpt,
@@ -161,6 +164,8 @@ function toBlogPost(record: SummaryRecord, categories: { id: string; name: strin
     publishedAt: (record.publishedAt ?? record.createdAt).toISOString(),
     featured: record.featured,
   });
+  if (record.readingTimeMinutes) post.readingTimeMinutes = record.readingTimeMinutes;
+  return post;
 }
 
 function withDetail(
@@ -337,14 +342,7 @@ function rankRelatedPosts(
  * discipline as the Footer's copyright year. 225 wpm is a commonly cited average adult reading
  * speed.
  */
-export function computeReadingTime(contentHtml: string, wordsPerMinute = 225): number {
-  const words = contentHtml
-    .replace(/<[^>]+>/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
-  return Math.max(1, Math.ceil(words / wordsPerMinute));
-}
+export { computeReadingTime };
 
 export interface BlogQueryParams {
   q?: string;

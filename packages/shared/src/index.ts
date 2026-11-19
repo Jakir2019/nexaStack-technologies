@@ -233,3 +233,4 @@ export { COUNTRIES } from './constants/countries.js';
 // Pure, environment-agnostic helpers that must behave identically in both apps
 export { sniffFileType, type SniffedFileType } from './utils/sniffFileType.js';
 export { findUnsafeArticleHtml, isSafeUrl } from './utils/articleHtml.js';
+export { computeReadingTime } from './utils/readingTime.js';
