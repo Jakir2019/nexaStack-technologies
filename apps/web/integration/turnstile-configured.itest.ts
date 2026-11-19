@@ -13,6 +13,7 @@ import { setupWeb, validContact, validQuotation, type Web } from './support';
 let web: Web;
 let fetchSpy: ReturnType<typeof mock.method<typeof globalThis, 'fetch'>>;
 let info: ReturnType<typeof mock.method<Console, 'info'>>;
+let error: ReturnType<typeof mock.method<Console, 'error'>>;
 
 before(async () => {
   web = await setupWeb({ turnstileSecret: 'test-secret-not-a-real-key' });
@@ -29,7 +30,7 @@ beforeEach(() => {
     async () => new Response(JSON.stringify({ success: true })),
   );
   info = mock.method(console, 'info', () => {});
-  mock.method(console, 'error', () => {});
+  error = mock.method(console, 'error', () => {});
   mock.method(console, 'warn', () => {});
 });
 
@@ -61,7 +62,9 @@ const FORMS = [
 
 for (const form of FORMS) {
   const hookCount = () =>
-    info.mock.calls.filter((call) => String(call.arguments[0]).includes(form.hook)).length;
+    [...info.mock.calls, ...error.mock.calls].filter((call) =>
+      String(call.arguments[0]).includes(form.hook),
+    ).length;
 
   describe(form.name, () => {
     it('refuses a submission with NO token (400), stores nothing, fires no hook', async () => {
@@ -98,6 +101,9 @@ for (const form of FORMS) {
       assert.equal(reply.status, 201, JSON.stringify(reply.body));
       assert.equal(await form.count(), before + 1);
       assert.equal(hookCount(), 1);
+      if (form.name === '/api/contact') {
+        assert.match(String(error.mock.calls[0]!.arguments[0]), /configuration_missing_or_invalid/);
+      }
       const raw = await web.mongoose.connection
         .collection(form.collection)
         .findOne({}, { sort: { _id: -1 } });

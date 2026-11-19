@@ -60,7 +60,7 @@ These public contact addresses are maintained in `company.email`. The domain add
 | Accounts/roles         | Implemented           | First-super-admin seed, account creation, role changes, suspend/reactivate, temporary password reset, forced change and last-active-super-admin safeguards. No public registration.                                                     |
 | Audit log              | Implemented           | Recorded auth/account/content/media/submission events, pagination, event/date filters and recent activity. Not a full infrastructure access log.                                                                                        |
 | Password recovery      | Partially implemented | Request/token/confirmation exists; links are logged outside production. Missing delivery prevents production self-service recovery end to end.                                                                                          |
-| Email notifications    | Planned               | Hooks run after persistence; neither web notifications nor API reset mail sends email. Setting RESEND_API_KEY does not enable delivery.                                                                                                 |
+| Email notifications    | Contact enabled               | Contact notifications use Resend after persistence; quotation notifications and API reset mail remain deferred.                                                                                                 |
 | Settings/broader CMS   | Planned               | A settings permission is reserved; no settings screen/API or admin CRUD for services, solutions, portfolio, technologies or testimonials.                                                                                               |
 | Monitoring/hosting     | Partially implemented | Pino, health endpoints, security configuration and Speed Insights instrumentation exist. Sentry/uptime monitoring remain intentions; no committed deployment pipeline.                                                                  |
 | Production readiness   | Unverified            | Live hosting, provider credentials, scheduled backups, cross-host cookies, real upload delivery, accessibility compliance and performance scores were not established.                                                                  |
@@ -262,7 +262,7 @@ Use [web/.env.example](apps/web/.env.example) and [api/.env.example](apps/api/.e
 | `CLOUDINARY_CLOUD_NAME`          | web, api           | Media account; web image allowlist at build/runtime  | Optional until media is used                          | `your-cloud-name`                              |
 | `CLOUDINARY_API_KEY`             | web, api           | Signed upload/download operations                    | Required for media operations                         | Empty until configured                         |
 | `CLOUDINARY_API_SECRET`          | web, api           | Cloudinary signing secret                            | Required for media operations                         | Empty until configured                         |
-| `RESEND_API_KEY`                 | web, api           | Reserved notification hook; currently does nothing   | Optional/inert                                        | Empty                                          |
+| `RESEND_API_KEY`                 | web                | Resend contact notification sending key             | Required for contact email; save works without it     | Empty                                          |
 | `NODE_ENV`                       | api; web framework | Runtime mode, cookies and logging                    | API defaults to development; Next sets its mode       | `development`                                  |
 | `PORT`                           | api                | HTTP listener                                        | Optional; default 4000                                | `4000`                                         |
 | `CORS_ORIGINS`                   | api                | Comma-separated browser origins; also CSRF allowlist | Required                                              | `http://localhost:3000`                        |
@@ -286,7 +286,7 @@ Test/operator controls are separate from application `.env` settings:
 | `E2E_REUSE_BUILD`               | e2e                   | Reuse `.next` from the same test setup | Optional; default rebuild        | `1` only for compatible test builds |
 | `NEXT_TELEMETRY_DISABLED`       | E2E web process       | Disable Next telemetry during tests    | Harness-provided                 | `1`                                 |
 
-**Example/code discrepancies:** examples contain nonempty Turnstile/Cloudinary placeholders, so copying alone is insufficient. The API example describes Cloudinary mainly as attachment retrieval, but it also powers media uploads/replacements/deletes. `RESEND_API_KEY` is read outside validated environment schemas and is inert. `COOKIE_DOMAIN`, mail-sender and Sentry settings mentioned in older intentions have no runtime implementation. Test controls above are intentionally absent from application examples.
+**Example/code discrepancies:** examples contain nonempty Turnstile/Cloudinary placeholders, so copying alone is insufficient. The API example describes Cloudinary mainly as attachment retrieval, but it also powers media uploads/replacements/deletes. Contact email configuration is validated at delivery time in `apps/web/lib/notifications.ts`, independently of database configuration. `COOKIE_DOMAIN`, API mail-sender and Sentry settings mentioned in older intentions have no runtime implementation. Test controls above are intentionally absent from application examples.
 
 ## Commands
 
@@ -666,7 +666,7 @@ Check readiness, repeated DB/provider errors, deferred notifications, failed log
 | Upload unavailable/cover absent                       | Replace or blank placeholders; match Cloudinary credentials; web cloud name required at build/runtime. Check real type/size and account delivery permissions.            |
 | SVG rejected                                          | Export plain SVG without scripts/external references, or PNG/WebP.                                                                                                       |
 | Blog change delayed                                   | Check published status/cache invalidation. Admin actions expire the tag; direct API calls do not. One-hour fallback expiry.                                              |
-| No confirmation/reset email                           | Expected limitation: setting `RESEND_API_KEY` does nothing. Check stored enquiries/quotations; development reset links are in private API logs.                          |
+| No confirmation/reset email                           | Contact: inspect safe notification logs and Resend delivery events. Visitor confirmations, quotation email and reset email remain deferred.                          |
 | Build cannot fetch Geist                              | `next/font/google` needs build-time outbound font access; no offline font-build configuration is committed.                                                              |
 | Integration cannot find MongoDB                       | Install local Community Server or set `$env:MONGOD_BIN`. No Atlas fallback.                                                                                              |
 | Browser binary missing/forms skipped                  | Provision Playwright binaries; check font/Cloudflare network. Skipped widget tests are not passing coverage.                                                             |
@@ -691,3 +691,72 @@ Read [AGENTS.md](AGENTS.md), canonical [CLAUDE.md](CLAUDE.md), and applicable [w
 Use `feat/`, `fix/`, `chore/`, `docs/` or `refactor/` branches and Conventional Commit subjects such as `docs: complete project setup guide`. Run lint/typecheck and relevant tests; keep PRs small and explain behavior/validation. Never commit private environments, credentials, client records, backups or browser auth artifacts. Commit/push only when authorized.
 
 **No license file is provided.** Private manifests and website copyright do not grant an open-source license; obtain owner permission before reuse/redistribution.
+
+
+### Contact notifications: Resend on Netlify
+
+The Next.js contact route validates input and Cloudflare Turnstile, saves the enquiry to MongoDB,
+then awaits a Resend HTTPS request (8-second deadline). Email failure never rolls back the saved
+enquiry or changes its HTTP 201 response. No dependency, database migration, DNS change, Render
+change or authentication change is required by this implementation.
+
+Required Netlify environment variables for this flow:
+
+| Variable | Value / purpose | Scope |
+|---|---|---|
+| `RESEND_API_KEY` | Real Resend sending key authorized for the sender domain; secret | Functions |
+| `RESEND_FROM_EMAIL` | `notifications@send.nexastacktechnologies.com` | Functions |
+| `CONTACT_NOTIFICATION_EMAIL` | `info@nexastacktechnologies.com` | Functions |
+| `MONGODB_URI` | Existing MongoDB connection string; preserve it | Functions and Builds (server modules validate it during build) |
+| `TURNSTILE_SECRET_KEY` | Existing Cloudflare secret; preserve it | Functions |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Existing matching site key | Builds |
+| `NEXT_PUBLIC_SITE_URL` | Existing canonical HTTPS site origin | Builds and Functions |
+| `NEXT_PUBLIC_API_URL` | Existing Express API origin without a path | Builds and Functions |
+
+Keep all other existing environment variables, including Cloudinary and quotation cleanup settings.
+Never prefix email credentials with NEXT_PUBLIC_ or place secrets in netlify.toml/source control.
+Missing or invalid email configuration logs configuration_missing_or_invalid and skips delivery.
+The three email settings are deliberately validated separately from startup configuration to keep
+MongoDB persistence available when email is misconfigured.
+
+Deployment steps (only after explicit approval to commit/push/deploy):
+
+1. Confirm in Resend that the existing send.nexastacktechnologies.com domain is verified and the
+   sending key permits that domain. If it is not verified, report that prerequisite; do not change DNS.
+2. In Netlify Project configuration → Environment variables, set the three email variables for
+   the Production context and Functions scope. Preserve the existing variables above. Use separate
+   test recipients/keys for Deploy Previews so previews cannot notify the production inbox.
+3. Keep repository root as Base directory, apps/web as Package directory,
+   `pnpm --filter @nexastack/shared build && pnpm --filter web build` as Build command,
+   apps/web/.next as Publish directory, and the automatic Next.js adapter with Node 22.12+.
+4. After the reviewed changes reach the connected branch with permission, trigger a production
+   redeploy. Netlify environment changes require a new deploy to take effect. A cache clear is
+   normally unnecessary; use Retry without cache only if stale build output is suspected.
+5. Inspect the function logs and perform the verification below. No deployment was performed by
+   this implementation.
+
+Production verification checklist:
+
+- Submit one clearly labelled test enquiry through /contact with a real Turnstile challenge.
+- Confirm HTTP 201, the existing success UI, and exactly one new enquiry in the admin interface.
+- Confirm the notification arrives at info@nexastacktechnologies.com from the configured sender.
+- Check name, email, subject, multiline message, optional phone/company, UTC timestamp and enquiry ID.
+- Click Reply and verify that the recipient is the visitor's validated address.
+- Confirm literal HTML-like text is displayed safely, without becoming executable markup.
+- Check the structured contact.received log: accepted means Resend accepted the API request;
+  use Resend delivery/bounce events and the mailbox to confirm actual inbox delivery.
+- Check missing configuration/provider failure behavior in a separate preview/test environment:
+  a submission must still be saved and return 201. Do not break production configuration to test it.
+- Confirm invalid input/Turnstile challenges do not create enquiries or trigger emails.
+- Check logs contain only the enquiry ID, delivery outcome and optional HTTP status, never the
+  visitor's message/email, API key, provider response body or raw network error.
+
+Duplicate protection uses Resend's Idempotency-Key header, contact.received/<saved enquiry ID>.
+Resend retains keys for 24 hours; repeated delivery of the same enquiry and unchanged payload within
+that window is deduplicated. Separate form submissions create separate enquiry IDs. There is no
+persistent outbox or automatic retry worker: monitor failures and use saved enquiries for recovery;
+do not ask a visitor to resubmit solely because notification delivery failed.
+
+References: [Resend send API](https://resend.com/docs/api-reference/emails/send-email),
+[Resend idempotency](https://resend.com/docs/dashboard/emails/idempotency-keys),
+[Netlify environment variables](https://docs.netlify.com/build/environment-variables/overview/).

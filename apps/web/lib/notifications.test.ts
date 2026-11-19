@@ -1,90 +1,114 @@
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, it, mock } from 'node:test';
+import { afterEach, beforeEach, it, mock } from 'node:test';
 
-/**
- * THE EMAIL HOOK, NOT EMAIL DELIVERY.
- *
- * No transactional email provider has been chosen (root CLAUDE.md 22 item 4), so nothing is ever sent and
- * real delivery CANNOT be tested. What can be tested is the seam: that the hook is invoked with the right
- * data, that it never throws into the caller, and that it does not send even if a provider key appears.
- * The hook has no injectable sink, so these tests spy on its real output channel (`console.info`).
- *
- * Development mode. See notifications.production.test.ts for the production log shape.
- */
+import { notifyContactSubmission, notifyQuotationSubmission } from './notifications';
 
-const env = process.env as Record<string, string | undefined>;
-env['NODE_ENV'] = 'test';
-
-const { notifyContactSubmission, notifyQuotationSubmission } = await import('./notifications');
-
+const submission = {
+  id: '507f1f77bcf86cd799439011',
+  createdAt: new Date('2026-11-19T10:00:00Z'),
+  fullName: 'Test <Visitor>',
+  email: 'test@example.com',
+  subject: 'Test enquiry',
+  message: '<script>alert("private")</script>\nSecond line & more',
+  phone: '+8801000000000',
+  companyName: "Test's Company",
+};
+const keys = ['RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'CONTACT_NOTIFICATION_EMAIL'] as const;
+const original = keys.map((key) => process.env[key]);
 let info: ReturnType<typeof mock.method<Console, 'info'>>;
 let error: ReturnType<typeof mock.method<Console, 'error'>>;
-
+let send: ReturnType<typeof mock.method<typeof globalThis, 'fetch'>>;
 beforeEach(() => {
+  process.env.RESEND_API_KEY = 're_dummy_secret';
+  process.env.RESEND_FROM_EMAIL = 'notifications@send.nexastacktechnologies.com';
+  process.env.CONTACT_NOTIFICATION_EMAIL = 'info@nexastacktechnologies.com';
   info = mock.method(console, 'info', () => {});
   error = mock.method(console, 'error', () => {});
+  send = mock.method(globalThis, 'fetch', async () => Response.json({ id: 'email-test' }));
 });
-
 afterEach(() => {
   mock.restoreAll();
-  delete env['RESEND_API_KEY'];
-});
-
-describe('notifyContactSubmission (development)', () => {
-  it('fires exactly once, as contact.received, carrying the stored id and the subject', () => {
-    notifyContactSubmission({ id: 'abc123', subject: 'Test enquiry' });
-    assert.equal(info.mock.callCount(), 1);
-    const [message, fields] = info.mock.calls[0]!.arguments as [string, Record<string, string>];
-    assert.match(message, /contact\.received/);
-    assert.match(message, /nothing sent/);
-    assert.deepEqual(fields, { id: 'abc123', subject: 'Test enquiry' });
-  });
-
-  it('never carries the sender name, email or message (only what the caller passed: id and subject)', () => {
-    notifyContactSubmission({ id: 'abc123', subject: 'Test enquiry' });
-    assert.deepEqual(Object.keys(info.mock.calls[0]!.arguments[1] as object).sort(), [
-      'id',
-      'subject',
-    ]);
-  });
-
-  it('does not throw into the caller when logging itself fails, and reports the failure', () => {
-    info.mock.mockImplementation(() => {
-      throw new Error('log sink is down');
-    });
-    assert.doesNotThrow(() => notifyContactSubmission({ id: 'abc123', subject: 'x' }));
-    assert.equal(error.mock.callCount(), 1);
-    assert.match(String(error.mock.calls[0]!.arguments[0]), /contact\.received hook failed/);
+  keys.forEach((key, index) => {
+    if (original[index] === undefined) delete process.env[key];
+    else process.env[key] = original[index];
   });
 });
-
-describe('notifyQuotationSubmission (development)', () => {
-  it('fires exactly once, as quotation.received, carrying the reference number only', () => {
-    notifyQuotationSubmission({ referenceNumber: 'NXQ-1234ABCD' });
-    assert.equal(info.mock.callCount(), 1);
-    const [message, fields] = info.mock.calls[0]!.arguments as [string, Record<string, string>];
-    assert.match(message, /quotation\.received/);
-    assert.deepEqual(fields, { referenceNumber: 'NXQ-1234ABCD' });
-  });
-
-  it('does not throw into the caller when logging itself fails', () => {
-    info.mock.mockImplementation(() => {
-      throw new Error('log sink is down');
-    });
-    assert.doesNotThrow(() => notifyQuotationSubmission({ referenceNumber: 'NXQ-1234ABCD' }));
-    assert.equal(error.mock.callCount(), 1);
-  });
+it('sends all fields with escaped HTML, validated Reply-To and stable idempotency', async () => {
+  await notifyContactSubmission(submission);
+  await notifyContactSubmission(submission);
+  const [url, options] = send.mock.calls[0]!.arguments;
+  assert.equal(url, 'https://api.resend.com/emails');
+  const body = JSON.parse(String(options!.body));
+  assert.equal(body.from, process.env.RESEND_FROM_EMAIL);
+  assert.deepEqual(body.to, [process.env.CONTACT_NOTIFICATION_EMAIL]);
+  assert.equal(body.reply_to, submission.email);
+  for (const value of Object.values(submission)) {
+    assert.ok(body.text.includes(value instanceof Date ? value.toISOString() : value));
+  }
+  assert.ok(body.html.includes('&lt;script&gt;'));
+  assert.ok(body.html.includes('&quot;private&quot;'));
+  assert.ok(body.html.includes('Test&#39;s Company'));
+  assert.ok(body.html.includes('<br>Second line &amp; more'));
+  assert.ok(!body.html.includes('<script>'));
+  assert.equal(options!.redirect, 'error');
+  assert.ok(options!.signal instanceof AbortSignal);
+  assert.equal(
+    new Headers(options!.headers).get('Idempotency-Key'),
+    `contact.received/${submission.id}`,
+  );
+  assert.deepEqual(send.mock.calls[1]!.arguments[1]!.headers, options!.headers);
+  assert.equal(JSON.parse(String(info.mock.calls[0]!.arguments[0])).delivery, 'accepted');
 });
-
-describe('no provider is wired: nothing is sent even if a provider key appears', () => {
-  it('makes no network request when RESEND_API_KEY is set', () => {
-    env['RESEND_API_KEY'] = 're_test_dummy_key';
-    const fetchSpy = mock.method(globalThis, 'fetch', () =>
-      Promise.reject(new Error('the hook must not send anything')),
+for (const status of [401, 429, 500]) {
+  it(`contains provider ${status} failure without leaking its response`, async () => {
+    send.mock.mockImplementation(
+      async () => new Response('private message re_dummy_secret', { status }),
     );
-    notifyContactSubmission({ id: 'abc123', subject: 'Test enquiry' });
-    notifyQuotationSubmission({ referenceNumber: 'NXQ-1234ABCD' });
-    assert.equal(fetchSpy.mock.callCount(), 0);
-    assert.equal(info.mock.callCount(), 2);
+    await assert.doesNotReject(notifyContactSubmission(submission));
+    assert.deepEqual(JSON.parse(String(error.mock.calls[0]!.arguments[0])), {
+      event: 'contact.received',
+      id: submission.id,
+      delivery: 'provider_rejected',
+      status,
+    });
   });
+}
+for (const key of keys) {
+  it(`skips delivery when ${key} is missing`, async () => {
+    delete process.env[key];
+    await notifyContactSubmission(submission);
+    assert.equal(send.mock.callCount(), 0);
+    assert.match(String(error.mock.calls[0]!.arguments[0]), /configuration_missing_or_invalid/);
+  });
+}
+it('contains network/timeout errors and broken logging', async () => {
+  send.mock.mockImplementation(async () => {
+    throw new Error('secret private message');
+  });
+  await assert.doesNotReject(notifyContactSubmission(submission));
+  assert.doesNotMatch(JSON.stringify(error.mock.calls), /secret private message/);
+  error.mock.mockImplementation(() => {
+    throw new Error('logger unavailable');
+  });
+  await assert.doesNotReject(notifyContactSubmission(submission));
+});
+it('rejects invalid Reply-To and invalid configured addresses before sending', async () => {
+  await notifyContactSubmission({
+    ...submission,
+    email: 'test@example.com\r\nBcc: other@example.com',
+  });
+  process.env.RESEND_FROM_EMAIL = 'invalid';
+  await notifyContactSubmission(submission);
+  assert.equal(send.mock.callCount(), 0);
+});
+it('detects malformed success responses and renders absent optional fields', async () => {
+  send.mock.mockImplementation(async () => Response.json({}));
+  await notifyContactSubmission({ ...submission, phone: undefined, companyName: undefined });
+  assert.match(String(send.mock.calls[0]!.arguments[1]!.body), /Not provided/);
+  assert.match(String(error.mock.calls[0]!.arguments[0]), /invalid_provider_response/);
+});
+it('quotation remains deferred without making a provider request', () => {
+  notifyQuotationSubmission({ referenceNumber: 'NXQ-TEST' });
+  assert.equal(send.mock.callCount(), 0);
+  assert.equal(info.mock.callCount(), 1);
 });

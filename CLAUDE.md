@@ -659,9 +659,7 @@ Rules that keep the tiers trustworthy:
 - **The API and web app are tested as they run**, not against mocks. Only Cloudflare's siteverify call is stubbed (offline
   integration tier); the browser tier uses Cloudflare's published always-pass test keys and needs internet, and skips visibly
   (never passes) if it is offline.
-- **Email delivery is NOT tested** (no provider exists, section 22 item 4). Tests prove the notification *hook* is called with
-  the right data at the right moment and never on a failure. **Screen-reader behaviour is NOT tested**: axe-core runs the
-  WCAG 2.1 A/AA rules automatically and says nothing about assistive technology.
+- **Contact email requests are tested with mocked Resend HTTPS responses**, including failures and safe logging; real inbox delivery is a production verification step. Integration tests prove MongoDB persistence survives email failures. Quotation and reset mail remain deferred. **Screen-reader behaviour is NOT tested**: axe-core does not verify assistive technology.
 - `apps/web` test files are type-checked by `next build` (they sit in the web tsconfig), so they must typecheck.
 - A known defect is tracked with `test.fail(true, reason)` and a comment, never by deleting or loosening the assertion.
 
@@ -707,7 +705,7 @@ Do not silently resolve these. Ask.
    expires the tag after each change through the `revalidateBlogAction` Server Action
    (`apps/web/lib/blogActions.ts`), so a publish or unpublish shows on the next request. The page
    itself stays rendered per request, never cached, so an unpublished post cannot linger.
-4. **Transactional email provider** — Resend, Postmark or Brevo.
+4. **Transactional email provider** — Resolved 2026-11-19 for Contact notifications: Resend HTTPS API in apps/web/lib/notifications.ts. Quotation and API reset mail remain deferred.
 5. **Render hosting tier** — the free tier sleeps and adds ~30s to the first request.
    Unacceptable for a contact form. Either pay, or serve contact/quotation from Next.js
    Route Handlers and reserve Express for the admin API. Resolved 2026-09-18 **for contact

@@ -5,8 +5,7 @@ import { setupWeb, validContact, type Web } from './support';
 
 /**
  * POST /api/contact: the real Route Handler against a real database. Valid and invalid submissions, what is
- * (and is not) stored, the deferred email hook (called at the right moment with the right data, and never on a
- * failure: still a HOOK, not delivery, because no email provider exists), the rate limit, mass assignment, and
+ * (and is not) stored, the Resend request (mocked externally), the rate limit, mass assignment, and
  * that an internal failure never leaks its message.
  */
 
@@ -23,6 +22,10 @@ after(async () => {
 });
 
 beforeEach(() => {
+  process.env.RESEND_API_KEY = 're_dummy_test';
+  process.env.RESEND_FROM_EMAIL = 'notifications@example.com';
+  process.env.CONTACT_NOTIFICATION_EMAIL = 'info@example.com';
+  mock.method(globalThis, 'fetch', async () => Response.json({ id: 'test-email' }));
   info = mock.method(console, 'info', () => {});
   error = mock.method(console, 'error', () => {});
   mock.method(console, 'warn', () => {});
@@ -30,6 +33,9 @@ beforeEach(() => {
 
 afterEach(() => {
   mock.restoreAll();
+  delete process.env.RESEND_API_KEY;
+  delete process.env.RESEND_FROM_EMAIL;
+  delete process.env.CONTACT_NOTIFICATION_EMAIL;
 });
 
 const hookCalls = () =>
@@ -59,12 +65,11 @@ describe('a valid submission', () => {
     assert.equal(stored.archived, false);
 
     assert.equal(hookCalls().length, 1, 'the hook fires exactly once');
-    const [message, fields] = hookCalls()[0]!.arguments as [
-      string,
-      { id: string; subject: string },
-    ];
-    assert.match(message, /nothing sent/, 'and it says plainly that nothing was delivered');
-    assert.deepEqual(fields, { id: String(stored._id), subject: 'Valid submission test' });
+    assert.deepEqual(JSON.parse(String(hookCalls()[0]!.arguments[0])), {
+      event: 'contact.received',
+      id: String(stored._id),
+      delivery: 'accepted',
+    });
   });
 
   it('the response never echoes the submission back (no personal data in the confirmation)', async () => {
@@ -240,3 +245,24 @@ describe('a failure while saving', () => {
     );
   });
 });
+
+for (const failure of ['provider', 'network', 'configuration']) {
+  it('preserves the saved enquiry and returns 201 on ' + failure + ' failure', async () => {
+    if (failure === 'configuration') delete process.env.RESEND_API_KEY;
+    else
+      mock.method(globalThis, 'fetch', async () => {
+        if (failure === 'network') throw new Error('private provider details');
+        return new Response('private provider details', { status: 503 });
+      });
+    const subject = 'Delivery failure ' + failure;
+    const reply = await web.postContact({ ...validContact, subject });
+    assert.equal(reply.status, 201);
+    assert.deepEqual(reply.body, { success: true, data: { received: true } });
+    const stored = await web.contacts.findOne({ subject });
+    assert.ok(stored);
+    assert.equal(stored.message, validContact.message);
+    assert.equal(hookCalls().length, 0);
+    assert.equal(error.mock.callCount(), 1);
+    assert.doesNotMatch(JSON.stringify(error.mock.calls), /private provider details|synthetic/);
+  });
+}

@@ -87,7 +87,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<u
     );
   }
 
-  let created: { id: string; subject: string };
+  let created: { id: string; createdAt: Date };
   try {
     await connectToDatabase();
     created = await ContactSubmission.create(parsed.data);
@@ -100,9 +100,9 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<u
     );
   }
 
-  // Deferred email hook, in one shared place (lib/notifications.ts). The persistence above must
-  // succeed first, and the hook never throws, so a failed notification can never lose the enquiry.
-  notifyContactSubmission({ id: created.id, subject: created.subject });
+  // Await the bounded provider request so serverless execution cannot end before delivery.
+  // The hook contains failures: the saved enquiry still receives a successful response.
+  await notifyContactSubmission({ ...parsed.data, id: created.id, createdAt: created.createdAt });
 
   return jsonSuccess({ received: true }, 201);
 }

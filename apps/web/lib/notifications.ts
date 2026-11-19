@@ -1,54 +1,131 @@
-/**
- * The one place the web app's "tell the firm about a new submission" hook lives. Contact and
- * Quotation used to carry identical, separate copies of an empty
- * `if (process.env.RESEND_API_KEY) {}` block; both now call this module.
- *
- * DEFERRED, on purpose. No transactional email provider has been chosen (root CLAUDE.md 22 item 4:
- * Resend / Postmark / Brevo), so nothing is sent even if the key appears. This module's job today
- * is to be the single seam to fill in later, and to make the hook observable meanwhile: in
- * development it logs one line per submission so the flow can be tested end to end without an
- * inbox. `apps/api/src/lib/mailer.ts` is the equivalent seam for the API (password reset); the two
- * apps share no runtime code, so there is one module per app rather than one for both.
- *
- * Call it only AFTER the submission has been persisted, and never let it throw into the caller: a
- * failed notification must never lose or fail an enquiry.
- *
- * Privacy: logs identifiers and the subject only, never the sender's name, email or message.
- */
+import { env } from 'node:process';
 
-const isProduction = process.env.NODE_ENV === 'production';
+import { contactFormSchema, type ContactPageInput } from '@nexastack/shared';
+import { z } from 'zod';
 
-type NotificationKind = 'contact.received' | 'quotation.received';
+/** Node-only module. Configuration is checked at delivery time so email cannot prevent a DB save. */
+const emailConfigSchema = z.object({
+  RESEND_API_KEY: z.string().trim().min(1),
+  RESEND_FROM_EMAIL: z.email(),
+  CONTACT_NOTIFICATION_EMAIL: z.email(),
+});
 
-function deliver(kind: NotificationKind, fields: Record<string, string>): void {
+export type ContactNotification = Pick<
+  ContactPageInput,
+  'fullName' | 'email' | 'subject' | 'message' | 'phone' | 'companyName'
+> & { id: string; createdAt: Date };
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return entities[character]!;
+  });
+}
+
+/** Never log request/response bodies, raw errors, configuration values, or visitor fields. */
+function contactLog(id: string, delivery: string, status?: number): void {
   try {
-    // TODO(CLAUDE.md section 22 item 4): send the notification to the firm, and a confirmation to
-    // the sender, once a provider is chosen. Do it here so every caller gets it.
-    if (process.env.RESEND_API_KEY) {
-      // Deferred: no provider is configured yet, so nothing is sent even if this var appears.
-    }
-
-    if (isProduction) {
-      console.info(JSON.stringify({ event: kind, ...fields, delivery: 'deferred' }));
-    } else {
-      console.info(
-        `[notifications] ${kind} — no email provider configured, nothing sent (development log)`,
-        fields,
-      );
-    }
-  } catch (err) {
-    console.error(`[notifications] ${kind} hook failed`, err);
+    const line = JSON.stringify({
+      event: 'contact.received',
+      id,
+      delivery,
+      ...(status === undefined ? {} : { status }),
+    });
+    if (delivery === 'accepted') console.info(line);
+    else console.error(line);
+  } catch {
+    // Logging failure must not change the submission result either.
   }
 }
 
-export function notifyContactSubmission(submission: { id: string; subject: string }): void {
-  // The subject is sender-supplied, so it is shown only outside production.
-  deliver(
-    'contact.received',
-    isProduction ? { id: submission.id } : { id: submission.id, subject: submission.subject },
-  );
+/** Called only after persistence. Provider acceptance is not proof of inbox delivery. */
+export async function notifyContactSubmission(submission: ContactNotification): Promise<void> {
+  try {
+    const config = emailConfigSchema.safeParse(env);
+    if (!config.success) {
+      contactLog(submission.id, 'configuration_missing_or_invalid');
+      return;
+    }
+    // Reuse the shared validation rule, including trimming, for Reply-To.
+    const replyTo = contactFormSchema.shape.email.safeParse(submission.email);
+    if (!replyTo.success) {
+      contactLog(submission.id, 'invalid_reply_to');
+      return;
+    }
+    const fields = [
+      ['Enquiry ID', submission.id],
+      ['Submitted at (UTC)', submission.createdAt.toISOString()],
+      ['Name', submission.fullName],
+      ['Email', replyTo.data],
+      ['Subject', submission.subject],
+      ['Phone', submission.phone || 'Not provided'],
+      ['Company', submission.companyName || 'Not provided'],
+      ['Message', submission.message],
+    ];
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.data.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `contact.received/${submission.id}`,
+      },
+      body: JSON.stringify({
+        from: config.data.RESEND_FROM_EMAIL,
+        to: [config.data.CONTACT_NOTIFICATION_EMAIL],
+        reply_to: replyTo.data,
+        subject: `New contact enquiry: ${submission.subject.replace(/[\r\n\u0000-\u001f\u007f]/g, ' ')}`,
+        text: fields.map(([label, value]) => `${label}: ${value}`).join('\n\n'),
+        html: `<h1>New contact enquiry</h1>${fields.map(([label, value]) => `<p><strong>${label}</strong><br>${escapeHtml(value!).replace(/\r?\n/g, '<br>')}</p>`).join('')}`,
+      }),
+      signal: AbortSignal.timeout(8_000),
+      redirect: 'error',
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      contactLog(submission.id, 'provider_rejected', response.status);
+      return;
+    }
+    const result: unknown = await response.json();
+    if (
+      !result ||
+      typeof result !== 'object' ||
+      !('id' in result) ||
+      typeof result.id !== 'string' ||
+      !result.id
+    ) {
+      contactLog(submission.id, 'invalid_provider_response');
+      return;
+    }
+    contactLog(submission.id, 'accepted');
+  } catch {
+    contactLog(submission.id, 'delivery_failed');
+  }
 }
 
+/** Quotation delivery remains deferred; enabling contact email does not enable other mail. */
 export function notifyQuotationSubmission(submission: { referenceNumber: string }): void {
-  deliver('quotation.received', { referenceNumber: submission.referenceNumber });
+  try {
+    if (env.NODE_ENV === 'production') {
+      console.info(
+        JSON.stringify({ event: 'quotation.received', ...submission, delivery: 'deferred' }),
+      );
+    } else {
+      console.info(
+        '[notifications] quotation.received — no email provider configured, nothing sent (development log)',
+        submission,
+      );
+    }
+  } catch {
+    try {
+      console.error('[notifications] quotation.received hook failed');
+    } catch {
+      /* Preserve the saved quotation even if logging fails. */
+    }
+  }
 }

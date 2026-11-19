@@ -1,49 +1,26 @@
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, it, mock } from 'node:test';
+import { it, mock } from 'node:test';
 
-/**
- * Production mode of the notification hook (the log shape is chosen once, at module load, from NODE_ENV,
- * so this needs its own process: `node --test` gives every file one). Still the hook, not delivery.
- */
-
-const env = process.env as Record<string, string | undefined>;
-env['NODE_ENV'] = 'production';
-
-const { notifyContactSubmission, notifyQuotationSubmission } = await import('./notifications');
-
-let info: ReturnType<typeof mock.method<Console, 'info'>>;
-
-beforeEach(() => {
-  info = mock.method(console, 'info', () => {});
-});
-
-afterEach(() => {
-  mock.restoreAll();
-});
-
-describe('notifications in production', () => {
-  it('logs one structured JSON line per contact submission, marked deferred, with the id but NOT the subject', () => {
-    notifyContactSubmission({
+it('production missing configuration logs identifiers only', async () => {
+  (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
+  delete process.env.RESEND_API_KEY;
+  const { notifyContactSubmission } = await import('./notifications');
+  const error = mock.method(console, 'error', () => {});
+  try {
+    await notifyContactSubmission({
       id: 'abc123',
-      subject: 'Sender-supplied subject that must not be logged',
+      createdAt: new Date(),
+      fullName: 'Private Name',
+      email: 'private@example.com',
+      subject: 'Private Subject',
+      message: 'Private Message',
     });
-    assert.equal(info.mock.callCount(), 1);
-    const line = String(info.mock.calls[0]!.arguments[0]);
-    assert.deepEqual(JSON.parse(line), {
+    assert.deepEqual(JSON.parse(String(error.mock.calls[0]!.arguments[0])), {
       event: 'contact.received',
       id: 'abc123',
-      delivery: 'deferred',
+      delivery: 'configuration_missing_or_invalid',
     });
-    assert.doesNotMatch(line, /Sender-supplied/);
-  });
-
-  it('logs one structured JSON line per quotation submission, with the reference number', () => {
-    notifyQuotationSubmission({ referenceNumber: 'NXQ-1234ABCD' });
-    assert.equal(info.mock.callCount(), 1);
-    assert.deepEqual(JSON.parse(String(info.mock.calls[0]!.arguments[0])), {
-      event: 'quotation.received',
-      referenceNumber: 'NXQ-1234ABCD',
-      delivery: 'deferred',
-    });
-  });
+  } finally {
+    mock.restoreAll();
+  }
 });
