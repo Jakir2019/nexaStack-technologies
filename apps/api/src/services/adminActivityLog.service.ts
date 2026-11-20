@@ -21,6 +21,7 @@ export interface LogAdminActivityInput {
  * The only writer of AdminActivityLog. Never pass a password, token, or any other secret in
  * `metadata` — this is a durable audit trail, not a debug log, and nothing here is redacted the
  * way `lib/logger.ts`'s Pino output is.
+ * it so a sam
  */
 export async function logAdminActivity(input: LogAdminActivityInput): Promise<void> {
   await AdminActivityLog.create({
