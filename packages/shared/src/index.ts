@@ -154,6 +154,7 @@ export type {
 
 // Constants
 export { ROLES, roleSchema, type Role } from './constants/roles.js';
+export { ADMIN_SESSION_COOKIE } from './constants/adminSession.js';
 export {
   PERMISSIONS,
   ROLE_PERMISSIONS,

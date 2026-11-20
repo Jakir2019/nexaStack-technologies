@@ -1,42 +1,52 @@
-import type { ApiResponse, AuthenticatedAdmin, Permission } from '@nexastack/shared';
-import { headers } from 'next/headers';
+import {
+  ADMIN_SESSION_COOKIE,
+  type ApiResponse,
+  type AuthenticatedAdmin,
+  type Permission,
+} from '@nexastack/shared';
+import { cookies } from 'next/headers';
 import { cache } from 'react';
 
 import { env } from '@/lib/env';
 
 export type { AuthenticatedAdmin };
 
-/**
- * Forwards the browser's `Cookie` header to apps/api's `GET /api/v1/auth/session` explicitly —
- * a Server Component can read the incoming request's cookies via `next/headers`, but a
- * server-to-server `fetch()` does not automatically attach them. Deliberately not a local JWT
- * decode: the API stays the single source of truth for whether a session is still valid
- * (signature, expiry, *and* not revoked in MongoDB, *and* the account not suspended) — see the Admin
- * Authentication task's cross-origin architecture notes. Returns `null` for "not authenticated",
- * never throws.
- *
- * The result carries the admin's `permissions` (computed by the API from the one role-to-capability
- * map) and `mustChangePassword`. Wrapped in React `cache()` so the layout, the page and any component
- * that asks during ONE request share a single lookup instead of each calling the API.
- */
-export const getAdminSession = cache(async (): Promise<AuthenticatedAdmin | null> => {
-  const incomingHeaders = await headers();
-  const cookie = incomingHeaders.get('cookie');
-  if (!cookie) return null;
+type SessionCheck =
+  | { status: 'verified'; admin: AuthenticatedAdmin }
+  | { status: 'missing' | 'rejected' | 'unavailable' };
+
+/** Share one uncached API verification among components in the same web request. */
+export const checkAdminSession = cache(async (): Promise<SessionCheck> => {
+  const token = (await cookies()).get(ADMIN_SESSION_COOKIE)?.value;
+  if (!token) return { status: 'missing' };
 
   try {
     const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/api/v1/auth/session`, {
-      headers: { cookie },
+      headers: { cookie: `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(token)}` },
       cache: 'no-store',
+      redirect: 'error',
     });
-    if (!response.ok) return null;
+    if (response.status === 401) return { status: 'rejected' };
+    if (!response.ok) return { status: 'unavailable' };
 
     const body = (await response.json()) as ApiResponse<{ admin: AuthenticatedAdmin }>;
-    return body.success ? body.data.admin : null;
+    if (!body.success || typeof body.data?.admin?.id !== 'string') {
+      return { status: 'unavailable' };
+    }
+    return { status: 'verified', admin: body.data.admin };
   } catch {
-    return null;
+    return { status: 'unavailable' };
   }
 });
+
+export async function getAdminSession({ throwOnUnavailable = false } = {}): Promise<AuthenticatedAdmin | null> {
+  const check = await checkAdminSession();
+  // Route guards have a retry boundary. Other callers already handle a missing identity.
+  if (throwOnUnavailable && check.status === 'unavailable') {
+    throw new Error('The admin session service is unavailable.');
+  }
+  return check.status === 'verified' ? check.admin : null;
+}
 
 /**
  * Whether the signed-in admin holds a capability, for deciding what to SHOW. This is user-experience

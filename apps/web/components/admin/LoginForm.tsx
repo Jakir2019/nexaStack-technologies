@@ -58,15 +58,14 @@ export function LoginForm() {
         return;
       }
 
-      const destination = response.ok ? await verifyAdminLogin(body.data.admin.id) : null;
-      if (!destination) {
-        setServerError(
-          'Sign-in was accepted, but the dashboard could not verify your session. Please check that cookies are enabled and try again.',
-        );
+      if (!response.ok) throw new Error('Sign-in failed');
+      const session = await verifyAdminLogin(body.data.admin.id);
+      if (!session.ok) {
+        setServerError(session.message);
         return;
       }
       // A new document request also discards any signed-out App Router state.
-      window.location.replace(destination);
+      window.location.replace(session.destination);
     } catch {
       setServerError('Something went wrong signing in. Please check your connection and try again.');
     }

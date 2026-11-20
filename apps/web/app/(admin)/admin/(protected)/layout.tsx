@@ -26,7 +26,7 @@ export interface ProtectedAdminLayoutProps {
  * logout button. It is not a sidebar; add a link to `lib/adminNav.ts` when a new area ships.
  */
 export default async function ProtectedAdminLayout({ children }: Readonly<ProtectedAdminLayoutProps>) {
-  const admin = await getAdminSession();
+  const admin = await getAdminSession({ throwOnUnavailable: true });
   if (!admin) redirect('/admin/login');
   if (admin.mustChangePassword) redirect('/admin/change-password');
 

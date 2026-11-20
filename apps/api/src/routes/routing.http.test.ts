@@ -6,13 +6,15 @@ import { after, before, describe, it } from 'node:test';
 import type { ApiFailure, ApiResponse } from '@nexastack/shared';
 
 // Exercise the real middleware/router stack without loading .env or connecting to MongoDB.
-process.env.NODE_ENV = 'test';
-process.env.CORS_ORIGINS = 'http://localhost:3000';
+const webOrigin = 'https://nexastack.test';
+process.env.NODE_ENV = 'production';
+process.env.CORS_ORIGINS = webOrigin;
 process.env.MONGODB_URI = 'mongodb://127.0.0.1:1/nexastack_test';
 process.env.JWT_SECRET = 'x'.repeat(40);
-process.env.WEB_APP_URL = 'http://localhost:3000';
+process.env.WEB_APP_URL = webOrigin;
+delete process.env.COOKIE_DOMAIN;
 process.env.LOG_LEVEL = 'silent';
-process.env.TRUST_PROXY = '0';
+process.env.TRUST_PROXY = '1';
 
 const { createApp } = await import('../app.js');
 let server: Server;
@@ -38,6 +40,22 @@ function request(path: string, init?: RequestInit) {
 }
 
 describe('API routing contract', () => {
+  it('refuses a split-host dashboard login before creating an unusable host-only session', async () => {
+    const response = await request('/api/v1/auth/login', {
+      method: 'POST',
+      headers: {
+        Origin: webOrigin,
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'nexastack-admin',
+        'X-Forwarded-Host': 'api.nexastack.test',
+      },
+      body: JSON.stringify({ email: 'test@example.com', password: 'unused-test-input' }),
+    });
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.has('set-cookie'), false);
+    assert.match(((await response.json()) as ApiFailure).error.message, /API cookie domain/);
+  });
+
   it('serves liveness independently of database readiness', async () => {
     const response = await request('/health');
     assert.equal(response.status, 200);
@@ -79,7 +97,7 @@ describe('API routing contract', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Origin: 'http://localhost:3000',
+        Origin: webOrigin,
         'X-Requested-With': 'nexastack-admin',
       },
       body: '{}',
@@ -109,13 +127,13 @@ describe('API routing contract', () => {
     const response = await request('/api/v1/auth/login', {
       method: 'OPTIONS',
       headers: {
-        Origin: 'http://localhost:3000',
+        Origin: webOrigin,
         'Access-Control-Request-Method': 'POST',
         'Access-Control-Request-Headers': 'content-type,x-requested-with',
       },
     });
     assert.equal(response.status, 204);
-    assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:3000');
+    assert.equal(response.headers.get('access-control-allow-origin'), webOrigin);
     assert.equal(response.headers.get('access-control-allow-credentials'), 'true');
     assert.match(response.headers.get('access-control-allow-headers') ?? '', /x-requested-with/i);
   });

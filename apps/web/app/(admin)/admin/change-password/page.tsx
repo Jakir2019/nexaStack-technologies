@@ -19,7 +19,7 @@ export const metadata: Metadata = {
  * page such an account can reach, and the API refuses everything else) and a voluntary change.
  */
 export default async function AdminChangePasswordPage() {
-  const admin = await getAdminSession();
+  const admin = await getAdminSession({ throwOnUnavailable: true });
   if (!admin) redirect('/admin/login');
 
   const forced = admin.mustChangePassword;

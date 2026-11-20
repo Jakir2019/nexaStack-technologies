@@ -137,6 +137,7 @@ export async function startApi(cookieDomain = '') {
     const mutating = method !== 'GET' && method !== 'HEAD';
     const headers: Record<string, string> = {
       'x-forwarded-for': options.ip ?? freshIp(),
+      ...(cookieDomain && { 'x-forwarded-host': `api.${cookieDomain}` }),
       ...options.headers,
     };
     const origin = options.origin === undefined ? (mutating ? webOrigin : null) : options.origin;

@@ -34,6 +34,7 @@ export const authRouter = Router();
  *     responses:
  *       200: { description: Session cookie set; admin identity returned (no password hash). }
  *       401: { description: Incorrect email or password (UNAUTHENTICATED). }
+ *       503: { description: The configured cookie scope cannot serve this dashboard. }
  *       403: { description: CSRF check failed (FORBIDDEN). }
  *       429: { description: Rate limit exceeded (RATE_LIMITED). }
  */

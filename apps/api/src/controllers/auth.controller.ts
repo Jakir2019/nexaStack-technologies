@@ -6,7 +6,12 @@ import {
 } from '@nexastack/shared';
 import type { Request, Response } from 'express';
 
-import { clearedSessionCookieOptions, SESSION_COOKIE_NAME, sessionCookieOptions } from '../lib/cookies.js';
+import {
+  clearedSessionCookieOptions,
+  requireDashboardCookieScope,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from '../lib/cookies.js';
 import { UnauthenticatedError } from '../lib/errors.js';
 import { sendSuccess } from '../lib/respond.js';
 import { validatedBody, validatedQuery } from '../middleware/validate.js';
@@ -30,6 +35,7 @@ function clearLegacySessionCookie(req: Request, res: Response): void {
 
 export async function login(req: Request, res: Response): Promise<void> {
   const input = validatedBody(res, loginSchema);
+  requireDashboardCookieScope(req.hostname, req.headers.origin);
   const result = await authService.login(input, requestContext(req));
 
   clearLegacySessionCookie(req, res);

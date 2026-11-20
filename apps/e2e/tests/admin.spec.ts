@@ -42,6 +42,11 @@ test.describe('signing in and out', () => {
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Users', exact: true })).toBeVisible();
+    const status = await page.evaluate(async (apiOrigin) => {
+      const response = await fetch(`${apiOrigin}/api/v1/auth/session`, { credentials: 'include' });
+      return response.status;
+    }, API_URL);
+    expect(status).toBe(200);
 
     const cookie = (await context.cookies()).find((c) => c.name === 'nexastack_admin_session');
     expect(cookie?.httpOnly, 'the session cookie is HttpOnly (script cannot read it)').toBe(true);
@@ -59,24 +64,32 @@ test.describe('signing in and out', () => {
     await context.close();
   });
 
-  test('an accepted login without a web cookie displays a session error and stays on the form', async ({
-    page, request,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== 'chromium', 'use one login attempt');
-    // Exercise the actual login endpoint, but withhold its cookie from this browser.
-    await page.route('**/api/v1/auth/login', async (route) => {
-      const response = await request.fetch(route.request());
-      const headers = response.headers();
-      delete headers['set-cookie'];
-      await route.fulfill({ response, headers });
+  for (const scenario of [
+    { name: 'missing cookie', cookie: '', message: 'dashboard did not receive the session cookie' },
+    {
+      name: 'invalid cookie',
+      cookie: 'nexastack_admin_session=invalid; HttpOnly; Path=/; SameSite=Lax',
+      message: 'session could not be confirmed',
+    },
+  ]) {
+    test(`accepted login with a ${scenario.name} stays on the form`, async ({ page, request }, testInfo) => {
+      test.skip(testInfo.project.name !== 'chromium', 'use one login attempt');
+      // Keep the real login and verification endpoints on both sides of this browser failure.
+      await page.route('**/api/v1/auth/login', async (route) => {
+        const response = await request.fetch(route.request());
+        const headers = response.headers();
+        delete headers['set-cookie'];
+        if (scenario.cookie) headers['set-cookie'] = scenario.cookie;
+        await route.fulfill({ response, headers });
+      });
+      await page.goto('/admin/login');
+      await page.getByLabel(/Email/i).fill(ADMINS.super_admin.email);
+      await page.getByLabel(/Password/i).fill(ADMINS.super_admin.password);
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect(page.locator('form').getByRole('alert')).toContainText(scenario.message);
+      await expect(page).toHaveURL(/\/admin\/login$/);
     });
-    await page.goto('/admin/login');
-    await page.getByLabel(/Email/i).fill(ADMINS.super_admin.email);
-    await page.getByLabel(/Password/i).fill(ADMINS.super_admin.password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.locator('form').getByRole('alert')).toContainText('could not verify your session');
-    await expect(page).toHaveURL(/\/admin\/login$/);
-  });
+  }
 });
 
 /** What each role's navigation shows: the SAME rules as `visibleNavLinks`, written out literally. */
