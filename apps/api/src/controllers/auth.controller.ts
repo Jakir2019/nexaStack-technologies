@@ -19,10 +19,20 @@ function requestContext(req: Request): authService.RequestContext {
   return { ipAddress: req.ip ?? 'unknown', userAgent: req.headers['user-agent'] };
 }
 
+function clearLegacySessionCookie(req: Request, res: Response): void {
+  const { domain, ...hostOnly } = clearedSessionCookieOptions();
+  // Retire an earlier API-host-only cookie before issuing the domain cookie. Browsers
+  // can otherwise send both under the same name and Express may read the older session.
+  if (domain && req.cookies?.[SESSION_COOKIE_NAME]) {
+    res.clearCookie(SESSION_COOKIE_NAME, hostOnly);
+  }
+}
+
 export async function login(req: Request, res: Response): Promise<void> {
   const input = validatedBody(res, loginSchema);
   const result = await authService.login(input, requestContext(req));
 
+  clearLegacySessionCookie(req, res);
   res.cookie(SESSION_COOKIE_NAME, result.token, sessionCookieOptions());
   // The token is set as an HTTP-only cookie, never returned in the body — the browser never
   // needs to read it directly, and it must not end up in application-level JS or logs.
@@ -33,6 +43,7 @@ export async function logout(req: Request, res: Response): Promise<void> {
   if (req.sessionId) {
     await authService.logout(req.sessionId, req.admin ?? null, requestContext(req));
   }
+  clearLegacySessionCookie(req, res);
   res.clearCookie(SESSION_COOKIE_NAME, clearedSessionCookieOptions());
   sendSuccess(res, { loggedOut: true }, 200);
 }

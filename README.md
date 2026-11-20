@@ -276,6 +276,7 @@ Use [web/.env.example](apps/web/.env.example) and [api/.env.example](apps/api/.e
 | `CORS_ORIGINS`                   | api                | Comma-separated browser origins; also CSRF allowlist | Required                                              | `http://localhost:3000`                        |
 | `JWT_SECRET`                     | api                | Signs session tokens; minimum 32 characters          | Required                                              | Generate privately; no reusable example secret |
 | `WEB_APP_URL`                    | api                | Origin for reset links                               | Required                                              | `http://localhost:3000`                        |
+| `COOKIE_DOMAIN`                  | api                | Session scope for direct API login and web SSR       | Omit on localhost. Set for trusted production subdomains. | `nexastacktechnologies.com`                 |
 | `LOG_LEVEL`                      | api                | Pino threshold                                       | Optional; default info                                | `info`                                         |
 | `TRUST_PROXY`                    | api                | Trusted reverse-proxy hop count                      | Optional; default 0                                   | `0` locally                                    |
 | `ADMIN_SEED_EMAIL`               | api seed script    | First administrator email                            | Required only when seeding                            | `admin@example.com`                            |
@@ -294,7 +295,7 @@ Test/operator controls are separate from application `.env` settings:
 | `E2E_REUSE_BUILD`               | e2e                   | Reuse `.next` from the same test setup | Optional; default rebuild        | `1` only for compatible test builds |
 | `NEXT_TELEMETRY_DISABLED`       | E2E web process       | Disable Next telemetry during tests    | Harness-provided                 | `1`                                 |
 
-**Example/code discrepancies:** examples contain nonempty Turnstile/Cloudinary placeholders, so copying alone is insufficient. The API example describes Cloudinary mainly as attachment retrieval, but it also powers media uploads/replacements/deletes. Contact email configuration is validated at delivery time in `apps/web/lib/notifications.ts`, independently of database configuration. `COOKIE_DOMAIN`, API mail-sender and Sentry settings mentioned in older intentions have no runtime implementation. Test controls above are intentionally absent from application examples.
+**Example/code discrepancies:** examples contain nonempty Turnstile/Cloudinary placeholders, so copying alone is insufficient. The API example describes Cloudinary mainly as attachment retrieval, but it also powers media uploads/replacements/deletes. Contact email configuration is validated at delivery time in `apps/web/lib/notifications.ts`, independently of database configuration. API mail-sender and Sentry settings mentioned in older intentions have no runtime implementation. Test controls above are intentionally absent from application examples.
 
 ## Commands
 
@@ -519,7 +520,7 @@ Public blog queries filter by published status, use lean reads, and derive the f
 
 [Auth services](apps/api/src/services/auth.service.ts) use bcrypt cost 12 and an eight-hour JWT backed by an `AdminSession`. Protected requests verify the token, session expiry/revocation and current account. There is no refresh-token flow; sign in after expiry. Logout revokes the session and clears its cookie.
 
-`nexastack_admin_session` is HTTP-only, `SameSite=Lax`, path `/`, Secure in production, and currently has **no Domain attribute**. JWTs are not stored in localStorage or returned as normal JSON credentials. See deployment before splitting hosts.
+`nexastack_admin_session` is HttpOnly, `SameSite=Lax`, path `/`, and Secure in production or whenever `COOKIE_DOMAIN` is set. It is host-only by default. After login the web server verifies its incoming cookie through Express before the browser opens the dashboard.
 
 Password changes require the current password, clear `mustChangePassword`, and revoke other sessions while preserving the current one. Created/reset accounts receive a generated temporary password once; convey it privately. Until changed, only session checking, logout and password change are available. Suspension revokes sessions; role changes apply through the current account on subsequent requests. Safeguards reject self-suspension/self-role-change and suspension/demotion of the last active super administrator; administrative reset also refuses resetting oneself.
 
@@ -650,7 +651,7 @@ These are settings to configure/test, not a completed deployment. Preserve works
 
 Set production origins before building, runtime secrets, working Turnstile keys, HTTPS, API `NODE_ENV=production`, exact `CORS_ORIGINS`, matching `WEB_APP_URL` and actual proxy hops (the example anticipates 1 on Render). Public forms write through Next, but admin requests still depend on API availability.
 
-**Cookie deployment blocker:** cookies are host-only. Localhost works across ports because cookies are host-based. With `www.example.com` and `api.example.com`, an API cookie will not reach Next on the web host, so SSR guards cannot forward it. A shared registrable domain alone is insufficient. A reviewed shared-domain cookie implementation or same-host reverse proxy is needed; neither a `COOKIE_DOMAIN` setting nor that proxy exists. Unrelated Vercel/Render default domains also conflict with `SameSite=Lax`; widening CORS does not fix this. Test the chosen topology before claiming production admin readiness.
+For the production web and API hosts, set Render's `COOKIE_DOMAIN=nexastacktechnologies.com`, `WEB_APP_URL=https://nexastacktechnologies.com`, and include that exact HTTPS origin in `CORS_ORIGINS`. A domain cookie reaches every subdomain, so use this scope only when all of them are trusted. Set Netlify's `NEXT_PUBLIC_API_URL=https://api.nexastacktechnologies.com` and `NEXT_PUBLIC_SITE_URL=https://nexastacktechnologies.com` for builds and functions. Deploy the API first, then build and deploy the web app. Sign in, reload the dashboard, sign out and reopen `/admin` to verify the deployed flow. On localhost leave `COOKIE_DOMAIN` empty.
 
 Use `/health` for liveness and `/health/ready` for usable MongoDB. Verify login, protected-page refresh, logout/revocation, publication visibility, form persistence and media in isolated staging before launch.
 
@@ -696,7 +697,7 @@ Check readiness, repeated DB/provider errors, deferred notifications, failed log
 
 Priorities grounded in current gaps:
 
-1. **Launch:** settle domain and implement/test cookie topology; choose/connect transactional email for resets and submission notifications/confirmations. Align copy that implies email confirmation with actual delivery.
+1. **Launch:** verify the deployed cookie scope and dashboard login; choose/connect transactional email for resets and submission notifications/confirmations. Align copy that implies email confirmation with actual delivery.
 2. **Operations:** configure protected automated DB/media backups, prove restores, set monitoring/retention policies, and verify staging providers/HTTPS/session behavior.
 3. **Scaling/abuse:** replace process-local rate limits before multi-instance reliance; review public upload/body limits, orphan cleanup and scanning. Public blog filtering currently loads all published summaries.
 4. **Content:** supply remaining authentic portfolio screenshots and verify demo availability, replace disclosed demo testimonials with permissioned feedback, finalize remaining legal/business details and brand variants. The official public contact emails are documented above; other open business decisions remain separate.

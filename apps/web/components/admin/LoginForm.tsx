@@ -8,7 +8,6 @@ import {
   type LoginInput,
 } from '@nexastack/shared';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 
@@ -16,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { FieldError } from '@/components/ui/FieldError';
 import { Input } from '@/components/ui/Input';
 import { adminApiFetch } from '@/lib/adminApi';
+import { verifyAdminLogin } from '@/lib/verifyAdminLogin';
 
 interface LoginFormFields {
   email: string;
@@ -32,7 +32,6 @@ const LABEL_CLASSES = 'block text-label font-medium text-primary';
  * else. Calls apps/api directly (root CLAUDE.md 22.5) rather than a Next.js Route Handler.
  */
 export function LoginForm() {
-  const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -59,10 +58,15 @@ export function LoginForm() {
         return;
       }
 
-      // An account still on its temporary password has nowhere else to go (the API refuses every
-      // other route), so send it straight to the change screen instead of bouncing off the layout.
-      router.push(body.data.admin.mustChangePassword ? '/admin/change-password' : '/admin');
-      router.refresh();
+      const destination = response.ok ? await verifyAdminLogin(body.data.admin.id) : null;
+      if (!destination) {
+        setServerError(
+          'Sign-in was accepted, but the dashboard could not verify your session. Please check that cookies are enabled and try again.',
+        );
+        return;
+      }
+      // A new document request also discards any signed-out App Router state.
+      window.location.replace(destination);
     } catch {
       setServerError('Something went wrong signing in. Please check your connection and try again.');
     }

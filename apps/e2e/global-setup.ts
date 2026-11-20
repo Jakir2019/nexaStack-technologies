@@ -146,6 +146,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       NODE_ENV: 'test', // not "production": a Secure cookie would be dropped by WebKit over http://localhost
       PORT: String(API_PORT),
       CORS_ORIGINS: WEB_URL,
+      COOKIE_DOMAIN: '',
       WEB_APP_URL: WEB_URL,
       MONGODB_URI: mongoUri,
       JWT_SECRET: jwtSecret,
@@ -162,7 +163,11 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     // 1. The real API, and the real first-admin script.
     run('api', ['--import', 'tsx', 'src/index.ts'], apiDir, apiEnv, true);
     await waitFor(`${API_URL}/health/ready`, 'the API');
-    await run('seed-admin', ['--import', 'tsx', 'scripts/seed-admin.ts'], apiDir, apiEnv, false);
+    // The bootstrap CLI requires an explicit target. mongoUri passed assertSafeTestUri above.
+    const target = new URL(mongoUri);
+    await run('seed-admin', [
+      '--import', 'tsx', 'scripts/seed-admin.ts', '--target', target.host + target.pathname,
+    ], apiDir, apiEnv, false);
 
     // 2. The other two roles, created the way a real super_admin does it: temporary password, forced change.
     const superCookie = await login(ADMINS.super_admin.email, ADMINS.super_admin.password);

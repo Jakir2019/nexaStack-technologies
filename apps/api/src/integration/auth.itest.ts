@@ -13,7 +13,7 @@ import { API, SESSION_COOKIE, freshIp, startApi, type Api } from './support/harn
 let api: Api;
 
 before(async () => {
-  api = await startApi();
+  api = await startApi('nexastack.test');
 });
 
 after(async () => {
@@ -50,7 +50,10 @@ describe('POST /auth/login', () => {
     assert.match(cookie, /HttpOnly/i);
     assert.match(cookie, /SameSite=Lax/i);
     assert.match(cookie, /Path=\//i);
-    assert.match(cookie, /Max-Age=\d+/i);
+    const attributes = cookie.split('; ').slice(1);
+    for (const expected of ['Domain=nexastack.test', 'Secure', 'Max-Age=28800']) {
+      assert.ok(attributes.includes(expected), `missing cookie attribute ${expected}`);
+    }
 
     const sessions = await api.models.AdminSession.find({ adminUserId: admin.id }).lean();
     assert.equal(sessions.length, 1);
@@ -64,6 +67,32 @@ describe('POST /auth/login', () => {
       }),
       1,
     );
+  });
+
+  it('replaces the legacy API-host cookie and verifies the shared Super Admin session', async () => {
+    const admin = await api.seedAdmin('super_admin');
+    const reply = await api.request(`${API}/auth/login`, {
+      method: 'POST',
+      body: { email: admin.email, password: admin.password },
+      cookie: `${SESSION_COOKIE}=stale`,
+    });
+    assert.equal(reply.status, 200);
+    assert.equal(reply.setCookies.length, 2);
+    const [removed, issued] = reply.setCookies;
+    assert.ok(removed && issued, 'received the legacy clearing cookie and the scoped session cookie');
+    assert.ok(removed.startsWith(`${SESSION_COOKIE}=;`));
+    assert.ok(removed.includes('Expires=Thu, 01 Jan 1970') && !removed.includes('Domain='));
+    assert.ok(issued.includes('Domain=nexastack.test'));
+    const cookie = issued.split(';')[0]!;
+    const session = await api.request(`${API}/auth/session`, { cookie });
+    assert.equal(session.status, 200);
+    assert.equal(session.body.data.admin.role, 'super_admin');
+    assert.equal(session.body.data.admin.mustChangePassword, false);
+    assert.equal((await api.request(`${API}/admin/dashboard/stats`, { cookie })).status, 200);
+    const logout = await api.request(`${API}/auth/logout`, { method: 'POST', cookie });
+    assert.ok(logout.setCookies.some((c) => c.startsWith(`${SESSION_COOKIE}=;`) &&
+      c.includes('Domain=nexastack.test') && c.includes('Expires=Thu, 01 Jan 1970')));
+    assert.equal((await api.request(`${API}/auth/session`, { cookie })).status, 401);
   });
 
   it('is case-insensitive about the email address', async () => {
@@ -321,7 +350,7 @@ describe('password reset, and its email hook', () => {
 
     const link = callsFor(spy, 'password_reset.link_dev_only')[0]?.resetLink;
     assert.ok(
-      link?.startsWith('http://localhost:3000/admin/reset-password?token='),
+      link?.startsWith(`${api.webOrigin}/admin/reset-password?token=`),
       'the link points at the web app',
     );
     const rawToken = new URL(link!).searchParams.get('token')!;

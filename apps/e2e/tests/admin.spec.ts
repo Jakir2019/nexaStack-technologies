@@ -23,21 +23,25 @@ test.describe('signing in and out', () => {
     );
     const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const page = await context.newPage();
-    await page.goto('/admin/login');
+    await page.goto('/admin');
+    await page.waitForURL('**/admin/login');
 
-    await page.getByLabel(/Email/i).fill(ADMINS.admin.email);
+    await page.getByLabel(/Email/i).fill(ADMINS.super_admin.email);
     await page.getByLabel(/Password/i).fill('Definitely-Wrong-Password-1');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.locator('form').getByRole('alert')).toHaveText('Incorrect email or password.');
     expect(new URL(page.url()).pathname).toBe('/admin/login');
     expect(
       (await context.cookies()).some((cookie) => cookie.name === 'nexastack_admin_session'),
     ).toBe(false);
 
-    await page.getByLabel(/Password/i).fill(ADMINS.admin.password);
+    await page.getByLabel(/Password/i).fill(ADMINS.super_admin.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.waitForURL('**/admin');
-    await expect(page.getByText(ADMINS.admin.email)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Users', exact: true })).toBeVisible();
 
     const cookie = (await context.cookies()).find((c) => c.name === 'nexastack_admin_session');
     expect(cookie?.httpOnly, 'the session cookie is HttpOnly (script cannot read it)').toBe(true);
@@ -53,6 +57,25 @@ test.describe('signing in and out', () => {
     await page.goto('/admin/enquiries');
     await page.waitForURL('**/admin/login');
     await context.close();
+  });
+
+  test('an accepted login without a web cookie displays a session error and stays on the form', async ({
+    page, request,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'use one login attempt');
+    // Exercise the actual login endpoint, but withhold its cookie from this browser.
+    await page.route('**/api/v1/auth/login', async (route) => {
+      const response = await request.fetch(route.request());
+      const headers = response.headers();
+      delete headers['set-cookie'];
+      await route.fulfill({ response, headers });
+    });
+    await page.goto('/admin/login');
+    await page.getByLabel(/Email/i).fill(ADMINS.super_admin.email);
+    await page.getByLabel(/Password/i).fill(ADMINS.super_admin.password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.locator('form').getByRole('alert')).toContainText('could not verify your session');
+    await expect(page).toHaveURL(/\/admin\/login$/);
   });
 });
 

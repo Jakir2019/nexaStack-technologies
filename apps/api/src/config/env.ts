@@ -66,10 +66,8 @@ const envSchema = z.object({
     }),
   ),
 
-  // REQUIRED. The public web app's origin, used only to build the password-reset link sent to
-  // the admin (e.g. `${WEB_APP_URL}/admin/reset-password?token=...`). Distinct from
-  // CORS_ORIGINS (which may list more than one origin) so this one, specific use has an
-  // unambiguous value.
+  // REQUIRED. The public web app's origin, used to build the password-reset link sent to
+  // the admin and to validate the session cookie's scope. CORS_ORIGINS can list multiple origins.
   WEB_APP_URL: z.preprocess(
     emptyToUndefined,
     z
@@ -83,6 +81,9 @@ const envSchema = z.object({
       .transform((url) => new URL(url).origin),
   ),
 
+  // Omit for host-only cookies (including localhost). Set only for trusted HTTPS subdomains.
+  COOKIE_DOMAIN: z.preprocess(emptyToUndefined, z.hostname().toLowerCase().optional()),
+
   // Number of reverse-proxy hops in front of the API (Render: 1). Needed so rate limiting
   // sees the real client IP. 0 = trust none (local development).
   TRUST_PROXY: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).default(0)),
@@ -95,6 +96,17 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.preprocess(emptyToUndefined, z.string().optional()),
   CLOUDINARY_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   CLOUDINARY_API_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+}).refine(({ COOKIE_DOMAIN, WEB_APP_URL }) => {
+  if (!COOKIE_DOMAIN) return true;
+  const web = new URL(WEB_APP_URL);
+  return (
+    web.protocol === 'https:' &&
+    COOKIE_DOMAIN.includes('.') &&
+    (web.hostname === COOKIE_DOMAIN || web.hostname.endsWith(`.${COOKIE_DOMAIN}`))
+  );
+}, {
+  path: ['COOKIE_DOMAIN'],
+  message: 'must be a cookie domain shared by the API and the HTTPS web app',
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -81,7 +81,7 @@ export function freshIp(): string {
   return `198.51.${Math.floor(ipCounter / 250) % 250}.${(ipCounter % 250) + 1}`;
 }
 
-export async function startApi() {
+export async function startApi(cookieDomain = '') {
   const serverUri = process.env['NEXASTACK_TEST_MONGO_URI'];
   if (!serverUri) {
     throw new Error(
@@ -93,12 +93,14 @@ export async function startApi() {
   const mongoUri = `${serverUri}/${dbName}`;
   assertSafeTestUri(mongoUri);
 
+  const webOrigin = cookieDomain ? `https://${cookieDomain}` : TEST_ORIGIN;
   Object.assign(process.env, {
     NODE_ENV: 'test',
-    CORS_ORIGINS: TEST_ORIGIN,
+    CORS_ORIGINS: webOrigin,
+    COOKIE_DOMAIN: cookieDomain,
     MONGODB_URI: mongoUri,
     JWT_SECRET: randomBytes(32).toString('hex'),
-    WEB_APP_URL: TEST_ORIGIN,
+    WEB_APP_URL: webOrigin,
     LOG_LEVEL: 'silent',
     TRUST_PROXY: '1',
   });
@@ -137,7 +139,7 @@ export async function startApi() {
       'x-forwarded-for': options.ip ?? freshIp(),
       ...options.headers,
     };
-    const origin = options.origin === undefined ? (mutating ? TEST_ORIGIN : null) : options.origin;
+    const origin = options.origin === undefined ? (mutating ? webOrigin : null) : options.origin;
     if (origin) headers['origin'] = origin;
     if (mutating && options.csrf !== false) headers[CSRF_HEADER] = CSRF_VALUE;
     if (options.cookie) headers['cookie'] = options.cookie;
@@ -220,6 +222,7 @@ export async function startApi() {
 
   return {
     base,
+    webOrigin,
     dbName,
     request,
     seedAdmin,

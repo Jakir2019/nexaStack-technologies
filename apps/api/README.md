@@ -77,6 +77,6 @@ The running API does not need bootstrap credentials. Keep the account password i
 | Login POST returns 401 with “Incorrect email or password.” | The API could not find the normalized email in its database, or bcrypt verification failed. Confirm the target and count first. |
 | Login POST returns 403 | Check the response code/message for rejected origin/CSRF headers or a suspended account. |
 | Login POST returns 429 | Wait for the rate-limit window. Repeated attempts prolong troubleshooting. |
-| Login POST returns 200, then the protected page redirects or session GET returns 401 | Inspect whether the browser accepted the session cookie and sent it to the web origin. The cookie is host-only, HttpOnly, SameSite=Lax and Secure in production. Next.js forwards cookies it receives for server-side session checks. A cookie issued on a separate API hostname cannot reach the web hostname in that request. A same-origin API proxy can support the current cookie scope. Check expiry, revocation and account status as well. |
+| Login POST returns 200, then the web session check fails | On the production API, set `COOKIE_DOMAIN=nexastacktechnologies.com` so the cookie reaches the web host for forwarding. Keep it unset on localhost. Check the cookie's domain, expiry, HttpOnly, Secure and SameSite=Lax flags, the session response status, and the account status. |
 
 Preserve CSRF, JWT verification, cookie security and server-side permissions when troubleshooting. Never paste a password, cookie, password hash, request body or full connection URI into an issue or log.
