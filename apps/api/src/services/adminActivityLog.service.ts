@@ -21,7 +21,7 @@ export interface LogAdminActivityInput {
  * The only writer of AdminActivityLog. Never pass a password, token, or any other secret in
  * `metadata` — this is a durable audit trail, not a debug log, and nothing here is redacted the
  * way `lib/logger.ts`'s Pino output is.
- * it so a sam
+ * it so a sample of the metadata is stored in the log for auditing purposes, but sensitive information is not logged.
  */
 export async function logAdminActivity(input: LogAdminActivityInput): Promise<void> {
   await AdminActivityLog.create({
@@ -140,20 +140,18 @@ export async function queryAdminActivity(
     docs.flatMap((doc) => (doc.adminUserId ? [String(doc.adminUserId)] : [])),
   );
 
-  const items = docs.map(
-    (doc): AdminAuditEntry => ({
-      id: String(doc._id),
-      eventType: doc.eventType as AdminActivityEventType,
-      actorEmail: doc.adminUserId ? (emails.get(String(doc.adminUserId)) ?? null) : null,
-      attemptedEmail: doc.attemptedEmail ?? undefined,
-      ipAddress: doc.ipAddress ?? undefined,
-      summary: summarizeAdminEvent(
-        doc.eventType,
-        (doc.metadata ?? undefined) as Record<string, unknown> | undefined,
-      ),
-      createdAt: (doc.createdAt as Date).toISOString(),
-    }),
-  );
+  const items = docs.map((doc): AdminAuditEntry => ({
+    id: String(doc._id),
+    eventType: doc.eventType as AdminActivityEventType,
+    actorEmail: doc.adminUserId ? (emails.get(String(doc.adminUserId)) ?? null) : null,
+    attemptedEmail: doc.attemptedEmail ?? undefined,
+    ipAddress: doc.ipAddress ?? undefined,
+    summary: summarizeAdminEvent(
+      doc.eventType,
+      (doc.metadata ?? undefined) as Record<string, unknown> | undefined,
+    ),
+    createdAt: (doc.createdAt as Date).toISOString(),
+  }));
 
   return toPaginated(items, total, page, limit);
 }

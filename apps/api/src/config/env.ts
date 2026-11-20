@@ -111,7 +111,7 @@ function loadEnv(): Env {
       'Invalid environment configuration:',
       ...lines,
       '',
-      'Copy apps/api/.env.example to apps/api/.env and set the variables above.',
+      'Set the variables above in the API environment. For local development, copy apps/api/.env.example to apps/api/.env.local.',
     ].join('\n'),
   );
   process.exit(1);
