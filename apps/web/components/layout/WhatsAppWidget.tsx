@@ -51,9 +51,8 @@ export function WhatsAppWidget() {
           type="button"
           aria-label="Chat with us on WhatsApp"
           className="fixed right-6 z-40 flex size-14 items-center justify-center rounded-full bg-primary-blue text-on-primary shadow-card transition-colors duration-150 ease-out hover:bg-primary-blue-hover focus-ring"
-          // Matches the `right-6`/`bottom-6` (1.5rem) offset used everywhere else in this file,
-          // extended with the safe-area inset so it doesn't sit under a device's home indicator.
-          style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+          // Reserve the bottom corner for Netlify branding, including the device safe area.
+          style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
         >
           <WhatsAppGlyph className="size-6" />
         </button>
@@ -64,10 +63,12 @@ export function WhatsAppWidget() {
           id="whatsapp-widget-panel"
           aria-describedby={undefined}
           onCloseAutoFocus={returnFocusToTrigger}
-          className="fixed right-6 left-6 z-40 rounded-card border border-default bg-surface p-5 shadow-card sm:left-auto sm:w-96 state-open:animate-menu-in state-closed:animate-menu-out"
-          // 6rem clears the 3.5rem (size-14) trigger button plus a gap; extended with the
-          // safe-area inset for the same reason as the trigger's own offset above.
-          style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
+          className="fixed right-6 left-6 z-40 overflow-y-auto rounded-card border border-default bg-surface p-5 shadow-card sm:left-auto sm:w-96 state-open:animate-menu-in state-closed:animate-menu-out"
+          // Keep the existing 1rem gap above the trigger and fit short mobile viewports.
+          style={{
+            bottom: 'calc(10.5rem + env(safe-area-inset-bottom))',
+            maxHeight: 'calc(100dvh - 12rem - env(safe-area-inset-bottom) - env(safe-area-inset-top))',
+          }}
         >
           <div className="flex items-start justify-between gap-4">
             <Dialog.Title className="text-card font-semibold tracking-tight text-primary">
