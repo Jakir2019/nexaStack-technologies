@@ -147,6 +147,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       PORT: String(API_PORT),
       CORS_ORIGINS: WEB_URL,
       COOKIE_DOMAIN: '',
+      PUBLIC_API_URL: API_URL,
       WEB_APP_URL: WEB_URL,
       MONGODB_URI: mongoUri,
       JWT_SECRET: jwtSecret,

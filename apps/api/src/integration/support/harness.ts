@@ -98,6 +98,7 @@ export async function startApi(cookieDomain = '') {
     NODE_ENV: 'test',
     CORS_ORIGINS: webOrigin,
     COOKIE_DOMAIN: cookieDomain,
+    PUBLIC_API_URL: cookieDomain ? `https://api.${cookieDomain}` : '',
     MONGODB_URI: mongoUri,
     JWT_SECRET: randomBytes(32).toString('hex'),
     WEB_APP_URL: webOrigin,
@@ -137,7 +138,7 @@ export async function startApi(cookieDomain = '') {
     const mutating = method !== 'GET' && method !== 'HEAD';
     const headers: Record<string, string> = {
       'x-forwarded-for': options.ip ?? freshIp(),
-      ...(cookieDomain && { 'x-forwarded-host': `api.${cookieDomain}` }),
+      ...(cookieDomain && { 'x-forwarded-host': 'internal.test' }),
       ...options.headers,
     };
     const origin = options.origin === undefined ? (mutating ? webOrigin : null) : options.origin;

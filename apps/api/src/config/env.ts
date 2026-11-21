@@ -82,7 +82,21 @@ const envSchema = z.object({
   ),
 
   // Omit for host-only cookies (including localhost). Set only for trusted HTTPS subdomains.
-  COOKIE_DOMAIN: z.preprocess(emptyToUndefined, z.hostname().toLowerCase().optional()),
+  COOKIE_DOMAIN: z.preprocess(
+    (value) => typeof value === 'string' ? emptyToUndefined(value.trim()) : value,
+    z.string().transform((value) => value.replace(/^\./, '').toLowerCase()).pipe(z.hostname()).optional(),
+  ),
+
+  // A reverse proxy can replace both Host and X-Forwarded-Host with an upstream hostname.
+  // This is the origin the browser uses for Express. It is never a fetch destination.
+  PUBLIC_API_URL: z.preprocess(
+    emptyToUndefined,
+    z.url({ protocol: /^https?$/ }).refine((value) => {
+      const url = URL.parse(value);
+      return url?.pathname === '/' && !url.username && !url.password && !/[?#]/.test(value);
+    }, 'must be an HTTP(S) origin without credentials, path, query or fragment')
+      .transform((value) => new URL(value).origin).optional(),
+  ),
 
   // Number of reverse-proxy hops in front of the API (Render: 1). Needed so rate limiting
   // sees the real client IP. 0 = trust none (local development).
@@ -96,7 +110,10 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.preprocess(emptyToUndefined, z.string().optional()),
   CLOUDINARY_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   CLOUDINARY_API_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
-}).refine(({ COOKIE_DOMAIN, WEB_APP_URL }) => {
+}).refine(({ PUBLIC_API_URL, NODE_ENV }) => (
+  !PUBLIC_API_URL || NODE_ENV !== 'production' || PUBLIC_API_URL.startsWith('https://')
+), { path: ['PUBLIC_API_URL'], message: 'must use HTTPS in production' })
+.refine(({ COOKIE_DOMAIN, WEB_APP_URL }) => {
   if (!COOKIE_DOMAIN) return true;
   const web = new URL(WEB_APP_URL);
   return (

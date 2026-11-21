@@ -9,16 +9,18 @@ export { ADMIN_SESSION_COOKIE as SESSION_COOKIE_NAME } from '@nexastack/shared';
 /** CSRF has already checked Origin. This check can only refuse a misconfigured dashboard login. */
 export function requireDashboardCookieScope(hostname: string, origin: string | undefined): void {
   if (origin !== env.WEB_APP_URL || (!isProduction && !env.COOKIE_DOMAIN)) return;
-  const apiHost = hostname.toLowerCase();
+  const apiHost = env.PUBLIC_API_URL ? new URL(env.PUBLIC_API_URL).hostname : hostname.toLowerCase();
   const webHost = new URL(origin).hostname;
   const domain = env.COOKIE_DOMAIN;
   // The env schema already checks that a configured domain covers the web host.
-  const usable = domain
-    ? apiHost === domain || apiHost.endsWith(`.${domain}`)
-    : apiHost === webHost;
-  if (!usable) {
+  if (!domain && apiHost !== webHost) {
     throw new ServiceUnavailableError(
-      'Dashboard sign-in is unavailable. The site operator must check the API cookie domain.',
+      'Dashboard sign-in is unavailable. Set COOKIE_DOMAIN on the API for the separate dashboard and API hosts.',
+    );
+  }
+  if (domain && apiHost !== domain && !apiHost.endsWith(`.${domain}`)) {
+    throw new ServiceUnavailableError(
+      'Dashboard sign-in is unavailable. Check the browser-facing PUBLIC_API_URL and COOKIE_DOMAIN on the API.',
     );
   }
 }

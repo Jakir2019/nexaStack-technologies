@@ -13,6 +13,7 @@ process.env.MONGODB_URI = 'mongodb://127.0.0.1:1/nexastack_test';
 process.env.JWT_SECRET = 'x'.repeat(40);
 process.env.WEB_APP_URL = webOrigin;
 delete process.env.COOKIE_DOMAIN;
+process.env.PUBLIC_API_URL = 'https://api.nexastack.test';
 process.env.LOG_LEVEL = 'silent';
 process.env.TRUST_PROXY = '1';
 
@@ -47,13 +48,13 @@ describe('API routing contract', () => {
         Origin: webOrigin,
         'Content-Type': 'application/json',
         'X-Requested-With': 'nexastack-admin',
-        'X-Forwarded-Host': 'api.nexastack.test',
+        'X-Forwarded-Host': 'internal.test',
       },
       body: JSON.stringify({ email: 'test@example.com', password: 'unused-test-input' }),
     });
     assert.equal(response.status, 503);
     assert.equal(response.headers.has('set-cookie'), false);
-    assert.match(((await response.json()) as ApiFailure).error.message, /API cookie domain/);
+    assert.match(((await response.json()) as ApiFailure).error.message, /Set COOKIE_DOMAIN/);
   });
 
   it('serves liveness independently of database readiness', async () => {
