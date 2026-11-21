@@ -35,7 +35,7 @@ import { connectToDatabase } from '@/lib/mongodb';
  * Only published content is ever cached, and only plain JSON-serialisable values (dates are ISO strings).
  */
 
-export interface BlogPost {
+export interface BlogPost<PublicationDate extends string | null = string> {
   readingTimeMinutes?: number;
   slug: string;
   title: string;
@@ -45,11 +45,11 @@ export interface BlogPost {
   coverImage?: string;
   /** Required in practice whenever `coverImage` is set — a content image needs real alt text. */
   coverImageAlt?: string;
-  publishedAt: string;
+  publishedAt: PublicationDate;
   featured?: boolean;
 }
 
-export interface BlogPostDetail extends BlogPost {
+export interface BlogPostDetail extends BlogPost<string | null> {
   /** Real founder identity (config/company.ts) — no multi-author scheme this project doesn't need. */
   author: { name: string; role: string };
   /** Pre-rendered, trusted HTML, produced by the API's escaping markdown renderer on save. */
@@ -128,7 +128,7 @@ function loadableCover(coverImage: string | null | undefined): string | undefine
   return undefined;
 }
 
-function buildPost(fields: {
+function buildPost<PublicationDate extends string | null>(fields: {
   slug: string;
   title: string;
   excerpt: string;
@@ -136,9 +136,9 @@ function buildPost(fields: {
   tags: readonly string[];
   coverImage?: string | null | undefined;
   coverImageAlt?: string | null | undefined;
-  publishedAt: string;
+  publishedAt: PublicationDate;
   featured: boolean;
-}): BlogPost {
+}): BlogPost<PublicationDate> {
   const coverImage = loadableCover(fields.coverImage);
   return {
     slug: fields.slug,
@@ -169,7 +169,7 @@ function toBlogPost(record: SummaryRecord, categories: { id: string; name: strin
 }
 
 function withDetail(
-  post: BlogPost,
+  post: BlogPost<string | null>,
   contentHtml: string,
   tableOfContents: { id: string; text: string; level: number }[],
 ): BlogPostDetail {
@@ -189,9 +189,7 @@ function withDetail(
 
 /**
  * The admin API's view of a post → the public template's shape. Used by the admin preview so it
- * renders through exactly the same `BlogPostDetail` the public page receives. A post that has
- * not been published yet has no `publishedAt`; the preview shows today's date, which is what the
- * article would carry if published now.
+ * renders through the public template, preserving a null date for a never-published post.
  */
 export function blogPostDetailFromAdmin(detail: BlogPostAdminDetail): BlogPostDetail {
   const post = buildPost({
@@ -202,7 +200,7 @@ export function blogPostDetailFromAdmin(detail: BlogPostAdminDetail): BlogPostDe
     tags: detail.tags,
     coverImage: detail.coverImage,
     coverImageAlt: detail.coverImageAlt,
-    publishedAt: detail.publishedAt ?? new Date().toISOString(),
+    publishedAt: detail.publishedAt,
     featured: detail.featured,
   });
   return withDetail(post, detail.contentHtml, detail.tableOfContents);

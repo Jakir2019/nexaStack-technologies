@@ -1,7 +1,7 @@
 import { CONTENT_STATUS, OBJECT_ID_PATTERN } from '@nexastack/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { LoadError } from '@/components/admin/content/LoadError';
 import { StatusBadge } from '@/components/admin/content/StatusBadge';
@@ -32,13 +32,17 @@ export default async function PreviewBlogPostPage({ params }: PreviewBlogPostPag
 
   const result = await getBlogPost(id);
   if (!result.ok && result.status === 404) notFound();
+  if (!result.ok && result.status === 401) redirect('/admin/login');
   if (!result.ok) {
     return <LoadError subject="this post" status={result.status} message={result.message} />;
   }
 
   const admin = result.data;
   const post = blogPostDetailFromAdmin(admin);
-  const relatedPosts = await getRelatedPostsFor(post);
+  const relatedPosts = await getRelatedPostsFor(post).catch(() => {
+    console.warn('[blog] Related articles could not be loaded for the admin preview.');
+    return [];
+  });
   const isLive = admin.status === CONTENT_STATUS.PUBLISHED;
 
   return (
@@ -78,7 +82,7 @@ export default async function PreviewBlogPostPage({ params }: PreviewBlogPostPag
       <ArticleView
         post={post}
         relatedPosts={relatedPosts}
-        canonicalUrl={`${env.NEXT_PUBLIC_SITE_URL}/blog/${post.slug}`}
+        canonicalUrl={isLive ? `${env.NEXT_PUBLIC_SITE_URL}/blog/${post.slug}` : undefined}
       />
     </div>
   );

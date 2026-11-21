@@ -227,6 +227,13 @@ test.describe('the Blog CMS lifecycle, observed on the public site', () => {
     await page.goto(`/admin/blog/${post.id}/edit`);
     await page.getByRole('button', { name: action, exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: done })).toBeVisible();
+    const expectedStatus = {
+      Publish: 'Published', Unpublish: 'Unpublished', Archive: 'Archived', 'Restore to draft': 'Draft',
+    }[action];
+    await page.goto(`/admin/blog/${post.id}/preview`);
+    const notice = page.getByRole('note', { name: 'Preview notice' });
+    await expect(notice.getByText(expectedStatus, { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: post.title, exact: true })).toBeVisible();
   };
 
   test.beforeAll(async () => {
@@ -303,7 +310,7 @@ test.describe('seeded posts: only the published one is public', () => {
     await page.goto(`/blog/${publishedPost.slug}`);
     await expect(page.locator('h1').first()).toHaveText(publishedPost.title);
     await page.goto('/blog');
-    await expect(page.getByText(publishedPost.title)).toBeVisible();
+    await expect(page.getByRole('link', { name: publishedPost.title, exact: true })).toBeVisible();
     await expect(page.getByText(draftPost.title)).toHaveCount(0);
     await expect(page.getByText(archivedPost.title)).toHaveCount(0);
     for (const hidden of [draftPost, archivedPost]) {
