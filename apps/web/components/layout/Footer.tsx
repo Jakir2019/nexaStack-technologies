@@ -56,6 +56,15 @@ export function Footer() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link
+                  href="/admin/login"
+                  prefetch={false}
+                  className="inline-flex min-h-11 items-center rounded-field text-label text-secondary underline-offset-4 focus-ring hover:text-primary-blue-hover hover:underline"
+                >
+                  Staff Login
+                </Link>
+              </li>
             </ul>
           </nav>
 
